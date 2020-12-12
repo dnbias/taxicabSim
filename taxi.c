@@ -4,11 +4,11 @@ int main(int argc, char **argv) {
   int shmid;
   key_t shmkey;
   void *mapptr;
-  if ((shmkey = ftok("./generator.c", 'a')) < 0) {
+  if ((shmkey = ftok("makefile", 'd')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  shmid = shmget(shmkey, 0, 0666);
+  shmid = shmget(shmkey, 0, 0644);
   if (shmid < 0) {
     printf("shmget error\n");
     EXIT_ON_ERROR

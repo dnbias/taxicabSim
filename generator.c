@@ -119,10 +119,13 @@ int main(int argc, char **argv) {
   key_t shmkey;
   void *mapptr;
   /* Genero chiave unica per tutti i processi */
-  if ((shmkey = ftok("./generator.c", 'a')) < 0) {
+  if ((shmkey = ftok("makefile", 'd')) < 0) {
     EXIT_ON_ERROR
   }
-  shmid = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell), IPC_CREAT | 0666);
+  if ((shmid = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
+                      IPC_CREAT | 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
   /* mapptr = &map;*/
   if ((mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
