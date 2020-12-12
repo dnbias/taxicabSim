@@ -2,16 +2,23 @@
 
 int main(int argc, char **argv) {
   int shmid;
-  Cell map[SO_WIDTH][SO_HEIGHT];
-  shmid = shmget(IPC_PRIVATE, SO_WIDTH * SO_HEIGHT * sizeof(Cell), 0666);
+  key_t shmkey;
+  void *mapptr;
+  if ((shmkey = ftok("./generator.c", 'a')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  shmid = shmget(shmkey, 0, 0666);
   if (shmid < 0) {
     printf("shmget error\n");
     EXIT_ON_ERROR
   }
-  shmat(shmid, &map, 0);
-  printMap(&map);
+  if ((mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
+    EXIT_ON_ERROR
+  }
+  printMap(mapptr);
 
   logmsg("Finishing up");
-  shmdt(&map);
+  shmdt(mapptr);
   exit(0);
 }

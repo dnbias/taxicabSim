@@ -1,4 +1,5 @@
 #include "generator.h"
+#include "general.h"
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
@@ -112,17 +113,24 @@ void cleanup(const void *adr, int shmid) {
 }
 
 int main(int argc, char **argv) {
-  Cell map[SO_WIDTH][SO_HEIGHT];
+  /*Cell map[SO_WIDTH][SO_HEIGHT];*/
   Config conf;
   int i, shmid;
-  shmid = shmget(IPC_PRIVATE, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
-                 IPC_CREAT | 0666);
-  if ((shmat(shmid, &map, 0)) < (void *)0) {
+  key_t shmkey;
+  void *mapptr;
+  /* Genero chiave unica per tutti i processi */
+  if ((shmkey = ftok("./generator.c", 'a')) < 0) {
+    EXIT_ON_ERROR
+  }
+  shmid = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell), IPC_CREAT | 0666);
+  /* mapptr = &map;*/
+  if ((mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
   parseConf(&conf);
-  generateMap(&map, &conf);
-  printMap(&map);
+  generateMap(mapptr, &conf);
+  printMap(mapptr);
+
   for (i = 0; i < conf.SO_TAXI; i++) {
     switch (fork()) {
     case -1:
@@ -139,6 +147,6 @@ int main(int argc, char **argv) {
   }
   */
 
-  cleanup(&map, shmid);
+  cleanup(mapptr, shmid);
   return 0;
 }
