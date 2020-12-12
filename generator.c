@@ -1,7 +1,9 @@
 #include "generator.h"
 #include "general.h"
 #include <sys/ipc.h>
+#include <sys/msg.h>
 #include <sys/shm.h>
+#include <unistd.h>
 
 /*
  * Parses the file taxicab.conf in the source directory and populates the Config
@@ -115,9 +117,10 @@ void cleanup(const void *adr, int shmid) {
 int main(int argc, char **argv) {
   /*Cell map[SO_WIDTH][SO_HEIGHT];*/
   Config conf;
-  int i, shmid;
-  key_t shmkey;
+  int i, shmid, qid;
+  key_t shmkey, qkey;
   void *mapptr;
+  Message *msgp;
   /* Genero chiave unica per tutti i processi */
   if ((shmkey = ftok("makefile", 'd')) < 0) {
     EXIT_ON_ERROR
@@ -130,6 +133,14 @@ int main(int argc, char **argv) {
   if ((mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
+
+  if ((qkey = ftok("makefile", 'd')) < 0) {
+    EXIT_ON_ERROR
+  }
+  if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
+
   parseConf(&conf);
   generateMap(mapptr, &conf);
   printMap(mapptr);
@@ -144,12 +155,28 @@ int main(int argc, char **argv) {
       EXIT_ON_ERROR
     }
   }
+
+  logmsg("Creo processi sorgenti");
+  for (i = 0; i < conf.SO_SOURCES; i++) {
+    switch (fork()) {
+    case -1:
+      EXIT_ON_ERROR
+    case 0:
+      msgp->type = getpid();
+      msgp->destination.x = 1;
+      msgp->destination.y = 2;
+      msgsnd(qid, &msgp, sizeof(Point), 0);
+      exit(0);
+    }
+  }
   /* Here the parent should manage the requests */
   /*
   while (0) {
   }
   */
-
+  logmsg("Aspetto i figli\n");
+  while (wait(NULL) > 0) {
+  }
   cleanup(mapptr, shmid);
-  return 0;
+  exit(0);
 }
