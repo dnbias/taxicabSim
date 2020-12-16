@@ -2,6 +2,7 @@
 #define __GENERAL_H_
 #include <errno.h>
 #include <math.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -69,16 +70,6 @@ void printMap(Cell (*map)[SO_WIDTH][SO_HEIGHT]) {
     }
     printf("\n");
   }
-}
-
-void SIGINThandler(int sig) {
-  external int executing;
-  executing--;
-}
-
-void ALARMhandler(int sig) {
-  signal(SIGINT, SIGINThandler);
-  kill(0, SIGINT);
 }
 
 #endif /* __GENERAL_H_ */

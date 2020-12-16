@@ -1,7 +1,16 @@
 #include "taxi.h"
+#include "general.h"
+
+void *mapptr;
+Point position;
+int *executing;
+
+void SIGINThandler(int sig) { *executing = 0; }
+
 void incTrafficAt(Point p) {
+
   /*wait mutex*/
-  mapptr[position.x][position.y]->Traffic++;
+  ((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[p.x][p.y]->traffic++;
   /*signal mutex*/
 }
 
@@ -11,10 +20,21 @@ void moveTo(Point p) { /*pathfinding*/
 int main(int argc, char **argv) {
   int shmid, qid;
   key_t shmkey, qkey;
-  void *mapptr;
-  Point position;
   Message msg;
-  external int executing;
+
+  if ((shmkey = ftok("makefile", 'a')) < 0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((shmid = shmget(shmkey, sizeof(int), IPC_CREAT | 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((executing = shmat(shmid, NULL, 0)) < (int *)0) {
+    EXIT_ON_ERROR
+  }
+  *executing = 1;
+
   if ((shmkey = ftok("makefile", 'd')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -40,9 +60,9 @@ int main(int argc, char **argv) {
 
   incTrafficAt(position);
 
-  while (executing) {
+  while (*executing) {
     msgrcv(qid, &msg, sizeof(Point), 0, 0);
-    logmsg("Going to Source " + msg.type);
+    logmsg("Going to Source");
     moveTo(msg.source);
     logmsg("Going to destination");
     moveTo(msg.destination);

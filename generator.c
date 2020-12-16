@@ -2,7 +2,7 @@
 #include "general.h"
 #include <unistd.h>
 
-int executing = 1;
+int *executing;
 Point Sources[MAX_SOURCES];
 
 /*
@@ -128,31 +128,47 @@ int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p) {
   return r;
 }
 
-void ALARMhandler(int sig);
+/*  Signal Handlers  */
+void SIGINThandler(int sig) { *executing = 0; }
+
+void ALARMhandler(int sig) {
+  signal(SIGINT, SIGINThandler);
+  kill(0, SIGINT);
+}
 
 int main(int argc, char **argv) {
   /*Cell map[SO_WIDTH][SO_HEIGHT];*/
   Config conf;
   int i, shmid, qid, xArg, yArg;
   int found = 0;
-  static int executing = 1;
   key_t shmkey, qkey;
   void *mapptr;
   Message msg;
-  char xArgBuffer[20],
-      yArgBuffer[20]; // more than big enough for a 32 bit integer
+  char xArgBuffer[20], yArgBuffer[20];
   char *args[4];
   char *envp[1];
+  if ((shmkey = ftok("makefile", 'a')) < 0) {
+    EXIT_ON_ERROR
+  }
 
+  if ((shmid = shmget(shmkey, sizeof(int), IPC_CREAT | 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((executing = shmat(shmid, NULL, 0)) < (int *)0) {
+    EXIT_ON_ERROR
+  }
+  *executing = 1;
   /* Genero chiave unica per tutti i processi */
   if ((shmkey = ftok("makefile", 'd')) < 0) {
     EXIT_ON_ERROR
   }
+
   if ((shmid = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
                       IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
-  /* mapptr = &map;*/
+
   if ((mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
@@ -179,7 +195,7 @@ int main(int argc, char **argv) {
       yArg = (rand() % SO_HEIGHT);
       snprintf(xArgBuffer, 20, "%d", xArg);
       snprintf(yArgBuffer, 20, "%d", yArg);
-      args[0] = "taxi"; // could be same as path
+      args[0] = "taxi";
       args[1] = xArgBuffer;
       args[2] = yArgBuffer;
       args[3] = NULL;
@@ -197,10 +213,10 @@ int main(int argc, char **argv) {
     case -1:
       EXIT_ON_ERROR
     case 0:
-      printf("[SOURCE %d] Initialization\n", getpid());
+      printf("[Source-%d] Initialization\n", getpid());
       msg.type = getpid();
       msg.source = Sources[i];
-      while (executing) {
+      while (*executing) {
         while (!found) {
           msg.destination.x = (rand() % SO_WIDTH);
           msg.destination.y = (rand() % SO_HEIGHT);
@@ -216,7 +232,7 @@ int main(int argc, char **argv) {
 
   alarm(conf.SO_DURATION);
 
-  logmsg("Aspetto i figli\n");
+  logmsg("Aspetto i figli");
   while (wait(NULL) > 0) {
   }
   cleanup(mapptr, shmid);
