@@ -1,6 +1,7 @@
 #ifndef __GENERAL_H_
 #define __GENERAL_H_
 #include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include <unistd.h>
 #define SO_WIDTH 4 /* a tempo di compilazione */
 #define SO_HEIGHT 4
+#define MAX_SOURCES (SO_WIDTH * SO_HEIGHT / 3)
 #define EXIT_ON_ERROR                                                          \
   if (errno) {                                                                 \
     fprintf(stderr, "%d: pid %ld; errno: %d (%s)\n", __LINE__, (long)getpid(), \
@@ -40,6 +42,7 @@ typedef struct {
 
 typedef struct {
   long type;
+  Point source;
   Point destination;
 } Message;
 
@@ -66,6 +69,16 @@ void printMap(Cell (*map)[SO_WIDTH][SO_HEIGHT]) {
     }
     printf("\n");
   }
+}
+
+void SIGINThandler(int sig) {
+  external int executing;
+  executing--;
+}
+
+void ALARMhandler(int sig) {
+  signal(SIGINT, SIGINThandler);
+  kill(0, SIGINT);
 }
 
 #endif /* __GENERAL_H_ */

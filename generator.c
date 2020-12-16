@@ -1,9 +1,9 @@
 #include "generator.h"
 #include "general.h"
-#include <sys/ipc.h>
-#include <sys/msg.h>
-#include <sys/shm.h>
 #include <unistd.h>
+
+int executing = 1;
+Point Sources[MAX_SOURCES];
 
 /*
  * Parses the file taxicab.conf in the source directory and populates the Config
@@ -72,6 +72,7 @@ int checkNoAdiacentHoles(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], int x, int y) {
  */
 void generateMap(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], Config *conf) {
   int x, y, r, i;
+  Point p;
   srandom(time(NULL));
   for (x = 0; x < SO_WIDTH; x++) {
     for (y = 0; y < SO_HEIGHT; y++) {
@@ -94,14 +95,17 @@ void generateMap(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], Config *conf) {
       i++;
     }
   }
-  for (i = conf->SO_SOURCES; i > 0; i--) {
+  for (i = 0; i > conf->SO_SOURCES; i++) {
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
 
     if (matrix[x][y]->state != HOLE && matrix[x][y]->state != SOURCE) {
-      i++;
-    } else {
       matrix[x][y]->state = SOURCE;
+      p.x = x;
+      p.y = y;
+      Sources[i] = p;
+    } else {
+      i--;
     }
   }
 }
@@ -113,14 +117,33 @@ void cleanup(const void *adr, int shmid) {
   shmdt(adr);
   shmctl(shmid, IPC_RMID, 0);
 }
+int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p) {
+  int r;
+  if (map[p.x][p.y]->state == FREE &&
+      (map[p.x][p.y]->traffic < map[p.x][p.y]->capacity)) {
+    r = 0;
+  } else {
+    r = 1;
+  }
+  return r;
+}
+
+void ALARMhandler(int sig);
 
 int main(int argc, char **argv) {
   /*Cell map[SO_WIDTH][SO_HEIGHT];*/
   Config conf;
-  int i, shmid, qid;
+  int i, shmid, qid, xArg, yArg;
+  int found = 0;
+  static int executing = 1;
   key_t shmkey, qkey;
   void *mapptr;
-  Message *msgp;
+  Message msg;
+  char xArgBuffer[20],
+      yArgBuffer[20]; // more than big enough for a 32 bit integer
+  char *args[4];
+  char *envp[1];
+
   /* Genero chiave unica per tutti i processi */
   if ((shmkey = ftok("makefile", 'd')) < 0) {
     EXIT_ON_ERROR
@@ -145,35 +168,54 @@ int main(int argc, char **argv) {
   generateMap(mapptr, &conf);
   printMap(mapptr);
 
+  signal(SIGALRM, ALARMhandler);
+
   for (i = 0; i < conf.SO_TAXI; i++) {
     switch (fork()) {
     case -1:
       EXIT_ON_ERROR
     case 0:
-      execl("taxi", "taxi", (char *)NULL);
+      xArg = (rand() % SO_WIDTH);
+      yArg = (rand() % SO_HEIGHT);
+      snprintf(xArgBuffer, 20, "%d", xArg);
+      snprintf(yArgBuffer, 20, "%d", yArg);
+      args[0] = "taxi"; // could be same as path
+      args[1] = xArgBuffer;
+      args[2] = yArgBuffer;
+      args[3] = NULL;
+      envp[0] = NULL;
+      execve("taxi", args, envp);
       /* here execv failed */
       EXIT_ON_ERROR
     }
   }
 
   logmsg("Creo processi sorgenti");
+
   for (i = 0; i < conf.SO_SOURCES; i++) {
     switch (fork()) {
     case -1:
       EXIT_ON_ERROR
     case 0:
-      msgp->type = getpid();
-      msgp->destination.x = 1;
-      msgp->destination.y = 2;
-      msgsnd(qid, &msgp, sizeof(Point), 0);
+      printf("[SOURCE %d] Initialization\n", getpid());
+      msg.type = getpid();
+      msg.source = Sources[i];
+      while (executing) {
+        while (!found) {
+          msg.destination.x = (rand() % SO_WIDTH);
+          msg.destination.y = (rand() % SO_HEIGHT);
+          if (isFree(mapptr, msg.destination)) {
+            found = 1;
+          }
+        }
+        msgsnd(qid, &msg, sizeof(Point), 0);
+      }
       exit(0);
     }
   }
-  /* Here the parent should manage the requests */
-  /*
-  while (0) {
-  }
-  */
+
+  alarm(conf.SO_DURATION);
+
   logmsg("Aspetto i figli\n");
   while (wait(NULL) > 0) {
   }
