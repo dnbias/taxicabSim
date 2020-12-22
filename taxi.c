@@ -15,6 +15,7 @@ void incTrafficAt(Point p) {
 }
 
 void moveTo(Point p) { /*pathfinding*/
+  /* funzione nanosleep permette di aspettare per il tempo indicato da */
 }
 
 int main(int argc, char **argv) {
