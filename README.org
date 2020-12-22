@@ -71,6 +71,7 @@
    * una volta scelta aumenta subito il suo Traffic
      + in modo che i taxi non si rubino il posto a vicenda
    * se non ne trova si sposta di una cella verso la piú vicina source e riprova
+2. viariabile timeout
 
 ** Config
 [[file:/home/dan/Code/C/Taxicab/taxicab.conf][File]]
