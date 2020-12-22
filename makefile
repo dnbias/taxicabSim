@@ -7,7 +7,7 @@
 CC = -gcc
 CFLAGS = -std=c89 -pedantic -g
 
-taxicab: master.o master.h generator taxi
+taxicab: master.o master.h generator taxi cleanall
 	$(CC) $(CFLAGS) -o taxicab master.c
 
 generator: generator.o generator.h general.h taxi
