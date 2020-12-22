@@ -16,4 +16,6 @@ generator: generator.o generator.h general.h taxi
 taxi: taxi.o taxi.h general.h
 	$(CC) $(CFLAGS) -o taxi taxi.c
 
+cleanall:
+	rm -f *.o
 # end
