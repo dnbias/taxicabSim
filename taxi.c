@@ -1,5 +1,7 @@
 #include "taxi.h"
 #include "general.h"
+#include <stdio.h>
+#include <unistd.h>
 
 void *mapptr;
 Point position;
@@ -11,11 +13,15 @@ void incTrafficAt(Point p) {
 
   /*wait mutex*/
   ((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[p.x][p.y]->traffic++;
+  logmsg("Incrementato traffico in ");
+  printf("\t(%d,%d)\n", p.x, p.y);
   /*signal mutex*/
 }
 
 void moveTo(Point p) { /*pathfinding*/
   /* funzione nanosleep permette di aspettare per il tempo indicato da */
+  usleep(5000000);
+  incTrafficAt(p);
 }
 
 int main(int argc, char **argv) {
@@ -23,6 +29,8 @@ int main(int argc, char **argv) {
   key_t shmkey, qkey;
   Message msg;
 
+  logmsg("Inizializzazione");
+  sleep(1);
   if ((shmkey = ftok("makefile", 'a')) < 0) {
     EXIT_ON_ERROR
   }
@@ -60,6 +68,7 @@ int main(int argc, char **argv) {
   sscanf(argv[2], "%d", &position.y);
 
   incTrafficAt(position);
+  sleep(5);
 
   while (*executing) {
     msgrcv(qid, &msg, sizeof(Point), 0, 0);

@@ -1,5 +1,6 @@
 #include "generator.h"
 #include "general.h"
+#include <stdio.h>
 #include <unistd.h>
 
 int *executing;
@@ -100,11 +101,10 @@ void generateMap(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], Config *conf) {
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
 
-    if (matrix[x][y]->state != HOLE && matrix[x][y]->state != SOURCE) {
+    if (matrix[x][y]->state == FREE) {
       matrix[x][y]->state = SOURCE;
-      p.x = x;
-      p.y = y;
-      Sources[i] = p;
+      Sources[i].x = x;
+      Sources[i].y = y;
     } else {
       i--;
     }
@@ -184,10 +184,14 @@ int main(int argc, char **argv) {
   parseConf(&conf);
   generateMap(mapptr, &conf);
   printMap(mapptr);
+  sleep(1);
 
   signal(SIGALRM, ALARMhandler);
 
+  logmsg("Creo taxi:");
   for (i = 0; i < conf.SO_TAXI; i++) {
+    printf("\t%d\n", i);
+    sleep(1);
     switch (fork()) {
     case -1:
       EXIT_ON_ERROR
@@ -208,13 +212,15 @@ int main(int argc, char **argv) {
   }
 
   logmsg("Creo processi sorgenti");
-
+  sleep(1);
   for (i = 0; i < conf.SO_SOURCES; i++) {
+    printf("\t%d\n", i);
     switch (fork()) {
     case -1:
       EXIT_ON_ERROR
     case 0:
       printf("[Source-%d] Initialization\n", getpid());
+      sleep(1);
       msg.type = getpid();
       msg.source = Sources[i];
       while (*executing) {
