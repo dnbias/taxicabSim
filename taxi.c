@@ -80,5 +80,4 @@ int main(int argc, char **argv) {
 
   logmsg("Finishing up");
   shmdt(mapptr);
-  exit(0);
 }
