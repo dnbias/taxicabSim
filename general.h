@@ -43,33 +43,7 @@ typedef struct {
 
 typedef struct {
   long type;
-  Point source;
   Point destination;
 } Message;
-
-/*
- * Print on stdout the map in a readable format:
- *     FREE Cells are printed as   [ ]
- *     SOURCE Cells are printed as [S]
- *     HOLE Cells are printed as   [H]
- */
-void printMap(Cell (*map)[SO_WIDTH][SO_HEIGHT]) {
-  int x, y;
-  for (y = 0; y < SO_HEIGHT; y++) {
-    for (x = 0; x < SO_WIDTH; x++) {
-      switch (map[x][y]->state) {
-      case FREE:
-        printf("[ ]");
-        break;
-      case SOURCE:
-        printf("[S]");
-        break;
-      case HOLE:
-        printf("[X]");
-      }
-    }
-    printf("\n");
-  }
-}
 
 #endif /* __GENERAL_H_ */
