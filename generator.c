@@ -3,7 +3,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
-int *executing;
+int *executing,shmid_ex, shmid_map, qid;
+void *mapptr;
 Point Sources[MAX_SOURCES];
 
 void logmsg(char *message) {
@@ -15,7 +16,24 @@ void logmsg(char *message) {
 /*  Signal Handlers  */
 void SIGINThandler(int sig) {
   printf("=============== Received SIGINT ==============\n");
-  *executing = 0;
+  /* *executing = 0; */
+  while(wait(NULL) > 0){}
+  shmdt(executing);
+  shmdt(mapptr);
+  if(shmctl(shmid_ex, IPC_RMID, NULL)){
+    printf("\nError in shmctl: ex,\n");
+    EXIT_ON_ERROR
+  }
+  if(shmctl(shmid_map, IPC_RMID, NULL)){
+    printf("\nError in shmctl: map,\n");
+    EXIT_ON_ERROR
+  }
+  if(msgctl(qid, IPC_RMID, NULL)){
+    printf("\nError in msgctl,\n");
+    EXIT_ON_ERROR
+  }
+  logmsg("Graceful exit successful");
+  exit(0);
 }
 
 void ALARMhandler(int sig) {
@@ -132,10 +150,7 @@ void generateMap(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], Config *conf) {
 /*
  * Detaches and eliminates shared memory segment
  */
-void cleanup(const void *adr, int shmid) {
-  shmdt(adr);
-  shmctl(shmid, IPC_RMID, 0);
-}
+
 int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p) {
   int r;
   if (map[p.x][p.y]->state == FREE &&
@@ -175,10 +190,9 @@ void printMap(Cell (*map)[SO_WIDTH][SO_HEIGHT]) {
 int main(int argc, char **argv) {
   /*Cell map[SO_WIDTH][SO_HEIGHT];*/
   Config conf;
-  int i, shmid, qid, xArg, yArg;
+  int i, xArg, yArg;
   int found = 0;
   key_t shmkey, qkey;
-  void *mapptr;
   char xArgBuffer[20], yArgBuffer[20];
   char *args[4];
   char *envp[1];
@@ -188,23 +202,23 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
-  if ((shmid = shmget(shmkey, sizeof(int), IPC_CREAT | 0644)) < 0) {
+  if ((shmid_ex = shmget(shmkey, sizeof(int), IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
 
-  if ((executing = shmat(shmid, NULL, 0)) < (int *)0) {
+  if ((executing = shmat(shmid_ex, NULL, 0)) < (int *)0) {
     EXIT_ON_ERROR
   }
   if ((shmkey = ftok("makefile", 'd')) < 0) {
     EXIT_ON_ERROR
   }
 
-  if ((shmid = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
+  if ((shmid_map = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
                       IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
 
-  if ((mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
+  if ((mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
 
@@ -275,6 +289,5 @@ int main(int argc, char **argv) {
   logmsg("Aspetto i figli");
   while (wait(NULL) > 0) {
   }
-  cleanup(mapptr, shmid);
   exit(0);
 }

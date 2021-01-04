@@ -5,12 +5,15 @@
 
 void *mapptr;
 Point position;
-int *executing;
+int *executing, qid;
 
 void SIGINThandler(int sig) {
   *executing = 0;
   logmsg("Finishing up");
   shmdt(mapptr);
+  shmdt(executing);
+  logmsg("Graceful exit successful");
+  exit(0);
 }
 
 void incTrafficAt(Point p) {
@@ -30,7 +33,7 @@ void moveTo(Point p) { /*pathfinding*/
 }
 
 int main(int argc, char **argv) {
-  int shmid, qid;
+  int shmid;
   key_t shmkey, qkey;
   Message msg;
 
@@ -83,7 +86,7 @@ int main(int argc, char **argv) {
   while (*executing) {
     msgrcv(qid, &msg, sizeof(Point), 0, 0);
     logmsg("Going to Nearest Source");
-    /* moveTo(getNearSource()); */
+    /* moveTo(getNearSource()); ********** TODO *********/
     logmsg("Going to destination");
     moveTo(msg.destination);
   }
