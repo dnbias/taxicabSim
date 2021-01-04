@@ -4,8 +4,10 @@
 
 void logmsg(char *message) {
   int pid;
-  pid = getpid();
-  printf("[taxi-%d] %s\n", pid, message);
+  if(DEBUG){
+    pid = getpid();
+    printf("[taxi-%d] %s\n", pid, message);
+  }
 }
 
 #endif /*__TAXI_H_*/

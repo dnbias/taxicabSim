@@ -13,6 +13,11 @@
 #include <sys/wait.h>
 #include <time.h> /* rand */
 #include <unistd.h>
+
+#ifndef DEBUG    /* DEBUG by setting when compiling -DDEBUG=1 */
+#define DEBUG 0
+#endif
+
 #define SO_WIDTH 8 /* a tempo di compilazione */
 #define SO_HEIGHT 8
 #define MAX_SOURCES (SO_WIDTH * SO_HEIGHT / 3)

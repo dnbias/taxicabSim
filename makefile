@@ -5,7 +5,7 @@
 # @version 0.1
 #
 CC = -gcc
-CFLAGS = -std=c89 -pedantic -g
+CFLAGS := -std=c89 -pedantic -g
 
 taxicab: master.o master.h generator source taxi cleanall
 	$(CC) $(CFLAGS) -o taxicab master.c

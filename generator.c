@@ -7,10 +7,13 @@ int *executing,shmid_ex, shmid_map, qid;
 void *mapptr;
 Point Sources[MAX_SOURCES];
 
+
 void logmsg(char *message) {
   int pid;
-  pid = getpid();
-  printf("[generator-%d] %s\n", pid, message);
+  if(DEBUG){
+    pid = getpid();
+    printf("[generator-%d] %s\n", pid, message);
+  }
 }
 
 /*  Signal Handlers  */
