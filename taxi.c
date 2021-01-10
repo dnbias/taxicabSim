@@ -78,7 +78,7 @@ void incTrafficAt(Point p) {
   /*signal mutex*/
 }
 
-void logmsg(char *message, int l) {
+void logmsg(char *message, enum Level l) {
   if(l <= DEBUG){
     printf("[taxi-%d] %s\n", getpid(), message);
   }

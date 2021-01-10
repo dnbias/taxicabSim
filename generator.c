@@ -220,17 +220,6 @@ void generateMap(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], Config *conf) {
   }
 }
 
-/* Checks whether the Point is Free */
-int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p) {
-  int r;
-  if (map[p.x][p.y]->state == FREE &&
-      (map[p.x][p.y]->traffic < map[p.x][p.y]->capacity)) {
-    r = 0;
-  } else {
-    r = 1;
-  }
-  return r;
-}
 
 /*
  * Print on stdout the map in a readable format:
@@ -257,7 +246,7 @@ void printMap(Cell (*map)[SO_WIDTH][SO_HEIGHT]) {
   }
 }
 
-void logmsg(char *message, Level l) {
+void logmsg(char *message, enum Level l) {
   if(l <= DEBUG){
     printf("[generator-%d] %s\n", getpid(), message);
   }
@@ -282,7 +271,7 @@ void SIGINThandler(int sig) {
     printf("\nError in msgctl,\n");
     EXIT_ON_ERROR
   }
-  logmsg("Graceful exit successful");
+  logmsg("Graceful exit successful", DB);
   exit(0);
 }
 

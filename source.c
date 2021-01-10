@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
   }
 }
 
-void logmsg(char *message, int l) {
+void logmsg(char *message, enum Level l) {
   int pid;
   if(l <= DEBUG){
     pid = getpid();

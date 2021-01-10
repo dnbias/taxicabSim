@@ -4,7 +4,7 @@
 
 void SIGINThandler(int);
 
-void logmsg(char *, int);
+void logmsg(char *, enum Level);
 
 void incTrafficAt(Point);
 
