@@ -1,49 +1,117 @@
 #include "generator.h"
-#include "general.h"
-#include <stdio.h>
-#include <unistd.h>
 
 int *executing,shmid_ex, shmid_map, qid;
 void *mapptr;
 Point Sources[MAX_SOURCES];
 
+int main(int argc, char **argv) {
+  Config conf;
+  int i, xArg, yArg;
+  int found = 0;
+  key_t shmkey, qkey;
+  char xArgBuffer[20], yArgBuffer[20];
+  char *args[4];
+  char *envp[1];
 
-void logmsg(char *message) {
-  int pid;
-  if(DEBUG){
-    pid = getpid();
-    printf("[generator-%d] %s\n", pid, message);
+  /************ INIT ************/
+  if ((shmkey = ftok("makefile", 'a')) < 0) {
+    EXIT_ON_ERROR
   }
-}
 
-/*  Signal Handlers  */
-void SIGINThandler(int sig) {
-  printf("=============== Received SIGINT ==============\n");
-  /* *executing = 0; */
-  while(wait(NULL) > 0){}
-  shmdt(executing);
-  shmdt(mapptr);
-  if(shmctl(shmid_ex, IPC_RMID, NULL)){
-    printf("\nError in shmctl: ex,\n");
+  if ((shmid_ex = shmget(shmkey, sizeof(int), IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
-  if(shmctl(shmid_map, IPC_RMID, NULL)){
-    printf("\nError in shmctl: map,\n");
+
+  if ((executing = shmat(shmid_ex, NULL, 0)) < (int *)0) {
     EXIT_ON_ERROR
   }
-  if(msgctl(qid, IPC_RMID, NULL)){
-    printf("\nError in msgctl,\n");
+  if ((shmkey = ftok("makefile", 'd')) < 0) {
     EXIT_ON_ERROR
   }
-  logmsg("Graceful exit successful");
+
+  if ((shmid_map = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
+                      IPC_CREAT | 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((qkey = ftok("makefile", 'd')) < 0) {
+    EXIT_ON_ERROR
+  }
+  if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
+  *executing = 1;
+  parseConf(&conf);
+  generateMap(mapptr, &conf);
+  signal(SIGINT, SIGINThandler);
+  signal(SIGALRM, ALARMhandler);
+  /************ END-INIT ************/
+
+  printMap(mapptr);
+  if(DEBUG) sleep(1);
+
+  logmsg("Forking Sources...", DB);
+  if(DEBUG) usleep(2000000);
+  for (i = 0; i < conf.SO_SOURCES; i++) {
+    if(DEBUG){
+      printf("\tSource n. %d created\n", i);
+      sleep(1);
+    }
+    switch (fork()) {
+    case -1:
+      EXIT_ON_ERROR
+    case 0:
+      xArg = (rand() % SO_WIDTH);
+      yArg = (rand() % SO_HEIGHT);
+      snprintf(xArgBuffer, 20, "%d", xArg);
+      snprintf(yArgBuffer, 20, "%d", yArg);
+      args[0] = "source";
+      args[1] = xArgBuffer;
+      args[2] = yArgBuffer;
+      args[3] = NULL;
+      envp[0] = NULL;
+      execve("source", args, envp);
+      /* here execv failed */
+      EXIT_ON_ERROR
+    }
+  }
+
+  logmsg("Forking Taxis...", DB);
+  for (i = 0; i < conf.SO_TAXI; i++) {
+    if(DEBUG){
+      printf("\tTaxi n. %d created\n", i);
+      sleep(1);
+    }
+    switch (fork()) {
+    case -1:
+      EXIT_ON_ERROR
+    case 0:
+      xArg = (rand() % SO_WIDTH);
+      yArg = (rand() % SO_HEIGHT);
+      snprintf(xArgBuffer, 20, "%d", xArg);
+      snprintf(yArgBuffer, 20, "%d", yArg);
+      args[0] = "taxi";
+      args[1] = xArgBuffer;
+      args[2] = yArgBuffer;
+      args[3] = NULL;
+      envp[0] = NULL;
+      execve("taxi", args, envp);
+      /* here execve failed */
+      EXIT_ON_ERROR
+    }
+  }
+  logmsg("Starting Timer now", DB);
+  alarm(conf.SO_DURATION);
+  logmsg("Waiting for Children.", DB);
+  while (wait(NULL) > 0) {
+  }
   exit(0);
 }
 
-void ALARMhandler(int sig) {
-  signal(SIGINT, SIGINThandler);
-  printf("=============== Received ALARM ===============\n");
-  kill(0, SIGINT);
-}
 
 /*
  * Parses the file taxicab.conf in the source directory and populates the Config
@@ -98,7 +166,9 @@ int checkNoAdiacentHoles(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], int x, int y) {
   int i, j;
   for (i = 0; i < 3; i++) {
     for (j = 0; j < 3; j++) {
-      if ((x + i - 1) >= 0 && (x + i - 1) <= SO_WIDTH && (y + j - 1) >= 0 &&
+      if ((x + i - 1) >= 0 &&
+          (x + i - 1) <= SO_WIDTH &&
+          (y + j - 1) >= 0 &&
           (y + j - 1) <= SO_HEIGHT &&
           matrix[x + i - 1][y + j - 1]->state == HOLE) {
         b = 1;
@@ -150,10 +220,7 @@ void generateMap(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], Config *conf) {
   }
 }
 
-/*
- * Detaches and eliminates shared memory segment
- */
-
+/* Checks whether the Point is Free */
 int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p) {
   int r;
   if (map[p.x][p.y]->state == FREE &&
@@ -169,7 +236,7 @@ int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p) {
  * Print on stdout the map in a readable format:
  *     FREE Cells are printed as   [ ]
  *     SOURCE Cells are printed as [S]
- *     HOLE Cells are printed as   [H]
+ *     HOLE Cells are printed as   [X]
  */
 void printMap(Cell (*map)[SO_WIDTH][SO_HEIGHT]) {
   int x, y;
@@ -190,107 +257,37 @@ void printMap(Cell (*map)[SO_WIDTH][SO_HEIGHT]) {
   }
 }
 
-int main(int argc, char **argv) {
-  /*Cell map[SO_WIDTH][SO_HEIGHT];*/
-  Config conf;
-  int i, xArg, yArg;
-  int found = 0;
-  key_t shmkey, qkey;
-  char xArgBuffer[20], yArgBuffer[20];
-  char *args[4];
-  char *envp[1];
+void logmsg(char *message, Level l) {
+  if(l <= DEBUG){
+    printf("[generator-%d] %s\n", getpid(), message);
+  }
+}
 
-  /************ INIT ************/
-  if ((shmkey = ftok("makefile", 'a')) < 0) {
+/*  Signal Handlers  */
+void SIGINThandler(int sig) {
+  printf("=============== Received SIGINT ==============\n");
+  /* *executing = 0; */
+  while(wait(NULL) > 0){}
+  shmdt(executing);
+  shmdt(mapptr);
+  if(shmctl(shmid_ex, IPC_RMID, NULL)){
+    printf("\nError in shmctl: ex,\n");
     EXIT_ON_ERROR
   }
-
-  if ((shmid_ex = shmget(shmkey, sizeof(int), IPC_CREAT | 0644)) < 0) {
+  if(shmctl(shmid_map, IPC_RMID, NULL)){
+    printf("\nError in shmctl: map,\n");
     EXIT_ON_ERROR
   }
-
-  if ((executing = shmat(shmid_ex, NULL, 0)) < (int *)0) {
+  if(msgctl(qid, IPC_RMID, NULL)){
+    printf("\nError in msgctl,\n");
     EXIT_ON_ERROR
   }
-  if ((shmkey = ftok("makefile", 'd')) < 0) {
-    EXIT_ON_ERROR
-  }
-
-  if ((shmid_map = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
-                      IPC_CREAT | 0644)) < 0) {
-    EXIT_ON_ERROR
-  }
-
-  if ((mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
-    EXIT_ON_ERROR
-  }
-
-  if ((qkey = ftok("makefile", 'd')) < 0) {
-    EXIT_ON_ERROR
-  }
-  if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
-    EXIT_ON_ERROR
-  }
-  *executing = 1;
-  parseConf(&conf);
-  generateMap(mapptr, &conf);
-  signal(SIGINT, SIGINThandler);
-  signal(SIGALRM, ALARMhandler);
-  /************ END-INIT ************/
-
-  printMap(mapptr);
-  sleep(1);
-
-  logmsg("Creo taxi:");
-  for (i = 0; i < conf.SO_TAXI; i++) {
-    printf("\t%d\n", i);
-    sleep(1);
-    switch (fork()) {
-    case -1:
-      EXIT_ON_ERROR
-    case 0:
-      xArg = (rand() % SO_WIDTH);
-      yArg = (rand() % SO_HEIGHT);
-      snprintf(xArgBuffer, 20, "%d", xArg);
-      snprintf(yArgBuffer, 20, "%d", yArg);
-      args[0] = "taxi";
-      args[1] = xArgBuffer;
-      args[2] = yArgBuffer;
-      args[3] = NULL;
-      envp[0] = NULL;
-      execve("taxi", args, envp);
-      /* here execv failed */
-      EXIT_ON_ERROR
-    }
-  }
-
-  logmsg("Creo processi sorgenti:");
-  usleep(2000000);
-  for (i = 0; i < conf.SO_SOURCES; i++) {
-    printf("\t%d\n", i);
-    switch (fork()) {
-    case -1:
-      EXIT_ON_ERROR
-    case 0:
-      xArg = (rand() % SO_WIDTH);
-      yArg = (rand() % SO_HEIGHT);
-      snprintf(xArgBuffer, 20, "%d", xArg);
-      snprintf(yArgBuffer, 20, "%d", yArg);
-      args[0] = "source";
-      args[1] = xArgBuffer;
-      args[2] = yArgBuffer;
-      args[3] = NULL;
-      envp[0] = NULL;
-      execve("source", args, envp);
-      /* here execv failed */
-      EXIT_ON_ERROR
-    }
-  }
-
-  alarm(conf.SO_DURATION);
-
-  logmsg("Aspetto i figli");
-  while (wait(NULL) > 0) {
-  }
+  logmsg("Graceful exit successful");
   exit(0);
+}
+
+void ALARMhandler(int sig) {
+  signal(SIGINT, SIGINThandler);
+  printf("=============== Received ALARM ===============\n");
+  kill(0, SIGINT);
 }

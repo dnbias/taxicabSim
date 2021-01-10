@@ -1,36 +1,7 @@
-#include "general.h"
-#include <stdio.h>
-#include <unistd.h>
+#include "source.h"
+
 void *mapptr;
 int *executing, qid;
-
-void logmsg(char *message) {
-  int pid;
-  if(DEBUG){
-    pid = getpid();
-    printf("[source-%d] %s\n", pid, message);
-  }
-}
-
-int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p) {
-  int r;
-  if (map[p.x][p.y]->state == FREE &&
-      (map[p.x][p.y]->traffic < map[p.x][p.y]->capacity)) {
-    r = 0;
-  } else {
-    r = 1;
-  }
-  return r;
-}
-
-void SIGINThandler(int sig) {
-  /* *executing = 0; */
-  logmsg("Finishing up");
-  shmdt(mapptr);
-  shmdt(executing);
-  logmsg("Graceful exit successful");
-  exit(0);
-}
 
 int main(int argc, char **argv) {
   int shmid;
@@ -69,11 +40,10 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
   signal(SIGINT, SIGINThandler);
-
   srandom(time(NULL));
   /********** END-INIT **********/
 
-  logmsg("Going into execution cycle");
+  logmsg("Going into execution cycle", DB);
   sleep(1);
   msg.type = getpid();
   while (*executing) {
@@ -84,16 +54,29 @@ int main(int argc, char **argv) {
         found = 1;
       }
     }
-    logmsg("Sending message:");
+    logmsg("Sending message:", DB);
     if(DEBUG){
       printf("\tmsg((%ld),(%d,%d))\n", msg.type,
              msg.destination.x,
              msg.destination.y);
     }
-
     msgsnd(qid, &msg, sizeof(Point), 0);
     found = 0;
   }
-  logmsg("Closing...");
+}
+
+void logmsg(char *message, int l) {
+  int pid;
+  if(l <= DEBUG){
+    pid = getpid();
+    printf("[source-%d] %s\n", pid, message);
+  }
+}
+
+void SIGINThandler(int sig) {
+  logmsg("Finishing up", DB);
+  shmdt(mapptr);
+  shmdt(executing);
+  logmsg("Graceful exit successful", DB);
   exit(0);
 }

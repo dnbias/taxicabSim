@@ -30,6 +30,8 @@
 
 enum type { FREE, SOURCE, HOLE };
 
+enum Level { RUNTIME, DB };
+
 typedef struct {
   enum type state;
   int capacity;
@@ -50,5 +52,7 @@ typedef struct {
   long type;
   Point destination;
 } Message;
+
+int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p);
 
 #endif /* __GENERAL_H_ */

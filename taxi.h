@@ -2,12 +2,12 @@
 #define __TAXI_H_
 #include "general.h"
 
-void logmsg(char *message) {
-  int pid;
-  if(DEBUG){
-    pid = getpid();
-    printf("[taxi-%d] %s\n", pid, message);
-  }
-}
+void SIGINThandler(int);
+
+void logmsg(char *, int);
+
+void incTrafficAt(Point);
+
+void moveTo(Point);
 
 #endif /*__TAXI_H_*/

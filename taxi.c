@@ -1,44 +1,16 @@
 #include "taxi.h"
-#include "general.h"
-#include <stdio.h>
-#include <unistd.h>
 
 void *mapptr;
 Point position;
 int *executing, qid;
-
-void SIGINThandler(int sig) {
-  *executing = 0;
-  logmsg("Finishing up");
-  shmdt(mapptr);
-  shmdt(executing);
-  logmsg("Graceful exit successful");
-  exit(0);
-}
-
-void incTrafficAt(Point p) {
-  /*wait mutex*/
-  ((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[p.x][p.y]->traffic++;
-  logmsg("Incrementato traffico in ");
-  printf("\t(%d,%d)\n", p.x, p.y);
-  /*signal mutex*/
-}
-
-void moveTo(Point p) { /*pathfinding*/
-  /* funzione nanosleep permette di aspettare per il tempo indicato da */
-  usleep(5000000);
-  logmsg("Moving to");
-  printf("\t(%d,%d)\n", p.x, p.y);
-  incTrafficAt(p);
-}
 
 int main(int argc, char **argv) {
   int shmid;
   key_t shmkey, qkey;
   Message msg;
 
-  logmsg("Inizializzazione");
-  sleep(1);
+  logmsg("Init...", DB);
+  if (DEBUG) sleep(1);
 
   /************INIT************/
   if ((shmkey = ftok("makefile", 'a')) < 0) {
@@ -75,19 +47,48 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
   signal(SIGINT, SIGINThandler);
-  logmsg("Init position");
   sscanf(argv[1], "%d", &position.x);
   sscanf(argv[2], "%d", &position.y);
+  logmsg("Init Finished", DB);
   /************END-INIT************/
 
   incTrafficAt(position);
-  sleep(3);
 
   while (*executing) {
     msgrcv(qid, &msg, sizeof(Point), 0, 0);
-    logmsg("Going to Nearest Source");
+    logmsg("Going to Nearest Source", DB);
     /* moveTo(getNearSource()); ********** TODO *********/
-    logmsg("Going to destination");
+    logmsg("Going to destination", DB);
     moveTo(msg.destination);
   }
+}
+
+void moveTo(Point p) { /*pathfinding*/
+  if (DEBUG) usleep(5000000);
+  logmsg("Moving to", DB);
+  if (DEBUG) printf("\t(%d,%d)\n", p.x, p.y);
+  incTrafficAt(p);
+}
+
+void incTrafficAt(Point p) {
+  /*wait mutex*/
+  ((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[p.x][p.y]->traffic++;
+  logmsg("Incrementato traffico in", DB);
+  if(DEBUG) printf("\t(%d,%d)\n", p.x, p.y);
+  /*signal mutex*/
+}
+
+void logmsg(char *message, int l) {
+  if(l <= DEBUG){
+    printf("[taxi-%d] %s\n", getpid(), message);
+  }
+}
+
+void SIGINThandler(int sig) {
+  /* *executing = 0; */
+  logmsg("Finishing up", DB);
+  shmdt(mapptr);
+  shmdt(executing);
+  logmsg("Graceful exit successful", DB);
+  exit(0);
 }
