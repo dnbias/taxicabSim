@@ -46,6 +46,8 @@ int main(int argc, char **argv) {
   if ((qid = msgget(qkey, 0644)) < 0) {
     EXIT_ON_ERROR
   }
+  
+  
   signal(SIGINT, SIGINThandler);
   sscanf(argv[1], "%d", &position.x);
   sscanf(argv[2], "%d", &position.y);
@@ -58,6 +60,7 @@ int main(int argc, char **argv) {
     msgrcv(qid, &msg, sizeof(Point), 0, 0);
     logmsg("Going to Nearest Source", DB);
     /* moveTo(getNearSource()); ********** TODO *********/
+    moveTo(getNearSource());
     logmsg("Going to destination", DB);
     moveTo(msg.destination);
   }
@@ -66,7 +69,6 @@ int main(int argc, char **argv) {
 void moveTo(Point p) { /*pathfinding*/
   if (DEBUG) usleep(5000000);
   logmsg("Moving to", DB);
-  if (DEBUG) printf("\t(%d,%d)\n", p.x, p.y);
   incTrafficAt(p);
 }
 
@@ -91,4 +93,19 @@ void SIGINThandler(int sig) {
   shmdt(executing);
   logmsg("Graceful exit successful", DB);
   exit(0);
+}
+
+Point getNearSurce(){
+	Point s
+	for(int n = 1; ;n++)
+	 for(int m = 1; ; m++){
+		if(((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x + (n-m)][position.y + m]->state == SOURCE)
+			return Point s = (position.x + (n-m),position.y + m);
+		if(((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x + (n-m)][position.y - m]->state == SOURCE)
+			return Point s = (position.x + (n-m),position.y - m);
+		if(((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x - (n-m)][position.y + m]->state == SOURCE)
+			return Point s = (position.x - (n-m),position.y + m);
+		if(((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x - (n-m)][position.y - m]->state == SOURCE)
+			return Point s = (position.x - (n-m),position.y - m);
+		}
 }
