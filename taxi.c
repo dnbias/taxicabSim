@@ -95,17 +95,33 @@ void SIGINThandler(int sig) {
   exit(0);
 }
 
-Point getNearSurce(){
-	Point s
-	for(int n = 1; ;n++)
-	 for(int m = 1; ; m++){
-		if(((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x + (n-m)][position.y + m]->state == SOURCE)
-			return Point s = (position.x + (n-m),position.y + m);
-		if(((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x + (n-m)][position.y - m]->state == SOURCE)
-			return Point s = (position.x + (n-m),position.y - m);
-		if(((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x - (n-m)][position.y + m]->state == SOURCE)
-			return Point s = (position.x - (n-m),position.y + m);
-		if(((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x - (n-m)][position.y - m]->state == SOURCE)
-			return Point s = (position.x - (n-m),position.y - m);
+Point getNearSource(){
+	Point s;
+	for(int n = 1; n < SO_WIDTH;n++)
+	 for(int m = 1; m < SO_HEIGHT; m++){
+		if((position.x + (n-m))<SO_WIDTH && (position.y + m)<SO_HEIGHT && 
+										((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x + (n-m)][position.y + m]->state == SOURCE){
+			s.x = (position.x + (n-m));
+			s.y = (position.y + m);
+			return s;
 		}
+		if((position.x - (n-m))<SO_WIDTH && (position.y + m)>0 && 
+										((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x + (n-m)][position.y - m]->state == SOURCE){
+			s.x = (position.x + (n-m));
+			s.y = (position.y - m);
+			return s;
+		}
+		if((position.x - (n-m))>0 && (position.y + m)<SO_HEIGHT && 
+										((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x - (n-m)][position.y + m]->state == SOURCE){
+			s.x = (position.x - (n-m));
+			s.y= (position.y + m);
+			return s;
+		}
+		if((position.x - (n-m))>0 && (position.y + m)>0 && 
+										((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x - (n-m)][position.y - m]->state == SOURCE){
+			s.x = (position.x - (n-m));
+			s.y = (position.y - m);
+			return s;
+		}
+	}
 }
