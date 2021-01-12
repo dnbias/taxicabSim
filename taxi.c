@@ -1,6 +1,6 @@
 #include "taxi.h"
 
-void *mapptr;
+void *mapptr, *sources_ptr;
 Point position;
 int qid;
 
@@ -14,7 +14,22 @@ int main(int argc, char **argv) {
     sleep(1);
 
   /************INIT************/
-  if ((shmkey = ftok("makefile", 'd')) < 0) {
+  if ((shmkey = ftok("makefile", 's')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((shmid = shmget(shmkey, 0, 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
+  if (shmid < 0) {
+    printf("shmget error\n");
+    EXIT_ON_ERROR
+  }
+  if ((sources_ptr = shmat(shmid, NULL, 0)) < (void *)0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((shmkey = ftok("makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
@@ -28,7 +43,7 @@ int main(int argc, char **argv) {
   if ((mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
-  if ((qkey = ftok("makefile", 'd')) < 0) {
+  if ((qkey = ftok("makefile", 'q')) < 0) {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, 0644)) < 0) {
@@ -78,46 +93,18 @@ void logmsg(char *message, enum Level l) {
 void SIGINThandler(int sig) {
   logmsg("Finishing up", DB);
   shmdt(mapptr);
+  shmdt(sources_ptr);
   logmsg("Graceful exit successful", DB);
   exit(0);
 }
 
 Point getNearSource() {
   Point s;
-  int n, m;
-  for (int n = 1; n < SO_WIDTH; n++)
-    for (int m = 1; m < SO_HEIGHT; m++) {
-      if ((position.x + (n - m)) < SO_WIDTH && (position.y + m) < SO_HEIGHT &&
-          ((Cell(*)[SO_WIDTH][SO_HEIGHT])
-               mapptr)[position.x + (n - m)][position.y + m]
-                  ->state == SOURCE) {
-        s.x = (position.x + (n - m));
-        s.y = (position.y + m);
-        return s;
-      }
-      if ((position.x - (n - m)) < SO_WIDTH && (position.y + m) > 0 &&
-          ((Cell(*)[SO_WIDTH][SO_HEIGHT])
-               mapptr)[position.x + (n - m)][position.y - m]
-                  ->state == SOURCE) {
-        s.x = (position.x + (n - m));
-        s.y = (position.y - m);
-        return s;
-      }
-      if ((position.x - (n - m)) > 0 && (position.y + m) < SO_HEIGHT &&
-          ((Cell(*)[SO_WIDTH][SO_HEIGHT])
-               mapptr)[position.x - (n - m)][position.y + m]
-                  ->state == SOURCE) {
-        s.x = (position.x - (n - m));
-        s.y = (position.y + m);
-        return s;
-      }
-      if ((position.x - (n - m)) > 0 && (position.y + m) > 0 &&
-          ((Cell(*)[SO_WIDTH][SO_HEIGHT])
-               mapptr)[position.x - (n - m)][position.y - m]
-                  ->state == SOURCE) {
-        s.x = (position.x - (n - m));
-        s.y = (position.y - m);
-        return s;
-      }
-    }
+  int n, temp, d = 0;
+  for (n = 0; n < MAX_SOURCES; n++) {
+    temp = abs(position.x - ((Point(*)[MAX_SOURCES])sources_ptr)[n]->x) +
+           abs(position.y - ((Point(*)[MAX_SOURCES])sources_ptr)[n]->y);
+    if (d > temp)
+      d = temp;
+  }
 }

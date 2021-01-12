@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
   Message msg;
 
   /********** INIT **********/
-  if ((shmkey = ftok("makefile", 'd')) < 0) {
+  if ((shmkey = ftok("makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
   if ((mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
-  if ((qkey = ftok("makefile", 'd')) < 0) {
+  if ((qkey = ftok("makefile", 'q')) < 0) {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, 0644)) < 0) {

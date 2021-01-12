@@ -10,4 +10,6 @@ void incTrafficAt(Point);
 
 void moveTo(Point);
 
+Point getNearSource();
+
 #endif /*__TAXI_H_*/

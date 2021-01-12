@@ -1,25 +1,27 @@
 #include "generator.h"
+#include "general.h"
 
-int shmid_map, qid;
-void *mapptr;
-Point Sources[MAX_SOURCES];
+int shmid_map, shmid_sources, qid;
+void *mapptr, *sources_ptr;
 
 int main(int argc, char **argv) {
   Config conf;
   int i, xArg, yArg;
   int found = 0;
-  key_t shmkey, qkey;
+  key_t shmkey1, shmkey2, qkey;
   char xArgBuffer[20], yArgBuffer[20];
   char *args[4];
   char *envp[1];
 
   /************ INIT ************/
-  if ((shmkey = ftok("makefile", 'd')) < 0) {
+  logmsg("Initialization", DB);
+
+  if ((shmkey2 = ftok("makefile", 'm')) < 0) {
     EXIT_ON_ERROR
   }
 
-  if ((shmid_map = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
-                          IPC_CREAT | 0644)) < 0) {
+  if ((shmid_map = shmget(shmkey2, 8 * 8 * sizeof(Cell), IPC_CREAT | 0666)) <
+      0) {
     EXIT_ON_ERROR
   }
 
@@ -27,18 +29,35 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
-  if ((qkey = ftok("makefile", 'd')) < 0) {
+  if ((shmkey1 = ftok("makefile", 's')) < 0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((shmid_sources = shmget(shmkey1, MAX_SOURCES * sizeof(Point),
+                              IPC_CREAT | 0666)) < 0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((sources_ptr = shmat(shmid_sources, NULL, 0)) < (void *)0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((qkey = ftok("makefile", 'q')) < 0) {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
   parseConf(&conf);
+  ((Cell(*)[8][8])mapptr)[4][0]->state = FREE;
+  logmsg("Generate map...", DB);
   generateMap(mapptr, &conf);
   signal(SIGINT, SIGINThandler);
   signal(SIGALRM, ALARMhandler);
+  logmsg("Init complete", DB);
   /************ END-INIT ************/
 
+  logmsg("Printing map...", DB);
   printMap(mapptr);
   if (DEBUG)
     sleep(1);
@@ -55,8 +74,8 @@ int main(int argc, char **argv) {
     case -1:
       EXIT_ON_ERROR
     case 0:
-      xArg = (rand() % SO_WIDTH);
-      yArg = (rand() % SO_HEIGHT);
+      xArg = ((Point(*)[MAX_SOURCES])sources_ptr)[i]->x;
+      yArg = ((Point(*)[MAX_SOURCES])sources_ptr)[i]->y;
       snprintf(xArgBuffer, 20, "%d", xArg);
       snprintf(yArgBuffer, 20, "%d", yArg);
       args[0] = "source";
@@ -193,14 +212,15 @@ void generateMap(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], Config *conf) {
       i++;
     }
   }
+  logmsg("Generating Sources...", DB);
   for (i = 0; i < conf->SO_SOURCES; i++) {
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
 
     if (matrix[x][y]->state == FREE) {
       matrix[x][y]->state = SOURCE;
-      Sources[i].x = x;
-      Sources[i].y = y;
+      ((Point(*)[MAX_SOURCES])sources_ptr)[i]->x = x;
+      ((Point(*)[MAX_SOURCES])sources_ptr)[i]->y = y;
     } else {
       i--;
     }
@@ -244,7 +264,11 @@ void SIGINThandler(int sig) {
   while (wait(NULL) > 0) {
   }
   shmdt(mapptr);
-
+  shmdt(sources_ptr);
+  if (shmctl(shmid_sources, IPC_RMID, NULL)) {
+    printf("\nError in shmctl: sources,\n");
+    EXIT_ON_ERROR
+  }
   if (shmctl(shmid_map, IPC_RMID, NULL)) {
     printf("\nError in shmctl: map,\n");
     EXIT_ON_ERROR
