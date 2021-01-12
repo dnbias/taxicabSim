@@ -1,6 +1,6 @@
 #include "generator.h"
 
-int *executing,shmid_ex, shmid_map, qid;
+int shmid_map, qid;
 void *mapptr;
 Point Sources[MAX_SOURCES];
 
@@ -14,23 +14,12 @@ int main(int argc, char **argv) {
   char *envp[1];
 
   /************ INIT ************/
-  if ((shmkey = ftok("makefile", 'a')) < 0) {
-    EXIT_ON_ERROR
-  }
-
-  if ((shmid_ex = shmget(shmkey, sizeof(int), IPC_CREAT | 0644)) < 0) {
-    EXIT_ON_ERROR
-  }
-
-  if ((executing = shmat(shmid_ex, NULL, 0)) < (int *)0) {
-    EXIT_ON_ERROR
-  }
   if ((shmkey = ftok("makefile", 'd')) < 0) {
     EXIT_ON_ERROR
   }
 
   if ((shmid_map = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
-                      IPC_CREAT | 0644)) < 0) {
+                          IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
 
@@ -44,7 +33,6 @@ int main(int argc, char **argv) {
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
-  *executing = 1;
   parseConf(&conf);
   generateMap(mapptr, &conf);
   signal(SIGINT, SIGINThandler);
@@ -52,12 +40,14 @@ int main(int argc, char **argv) {
   /************ END-INIT ************/
 
   printMap(mapptr);
-  if(DEBUG) sleep(1);
+  if (DEBUG)
+    sleep(1);
 
   logmsg("Forking Sources...", DB);
-  if(DEBUG) usleep(2000000);
+  if (DEBUG)
+    usleep(2000000);
   for (i = 0; i < conf.SO_SOURCES; i++) {
-    if(DEBUG){
+    if (DEBUG) {
       printf("\tSource n. %d created\n", i);
       sleep(1);
     }
@@ -82,7 +72,7 @@ int main(int argc, char **argv) {
 
   logmsg("Forking Taxis...", DB);
   for (i = 0; i < conf.SO_TAXI; i++) {
-    if(DEBUG){
+    if (DEBUG) {
       printf("\tTaxi n. %d created\n", i);
       sleep(1);
     }
@@ -111,7 +101,6 @@ int main(int argc, char **argv) {
   }
   exit(0);
 }
-
 
 /*
  * Parses the file taxicab.conf in the source directory and populates the Config
@@ -166,9 +155,7 @@ int checkNoAdiacentHoles(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], int x, int y) {
   int i, j;
   for (i = 0; i < 3; i++) {
     for (j = 0; j < 3; j++) {
-      if ((x + i - 1) >= 0 &&
-          (x + i - 1) <= SO_WIDTH &&
-          (y + j - 1) >= 0 &&
+      if ((x + i - 1) >= 0 && (x + i - 1) <= SO_WIDTH && (y + j - 1) >= 0 &&
           (y + j - 1) <= SO_HEIGHT &&
           matrix[x + i - 1][y + j - 1]->state == HOLE) {
         b = 1;
@@ -220,7 +207,6 @@ void generateMap(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], Config *conf) {
   }
 }
 
-
 /*
  * Print on stdout the map in a readable format:
  *     FREE Cells are printed as   [ ]
@@ -247,7 +233,7 @@ void printMap(Cell (*map)[SO_WIDTH][SO_HEIGHT]) {
 }
 
 void logmsg(char *message, enum Level l) {
-  if(l <= DEBUG){
+  if (l <= DEBUG) {
     printf("[generator-%d] %s\n", getpid(), message);
   }
 }
@@ -255,19 +241,15 @@ void logmsg(char *message, enum Level l) {
 /*  Signal Handlers  */
 void SIGINThandler(int sig) {
   printf("=============== Received SIGINT ==============\n");
-  /* *executing = 0; */
-  while(wait(NULL) > 0){}
-  shmdt(executing);
-  shmdt(mapptr);
-  if(shmctl(shmid_ex, IPC_RMID, NULL)){
-    printf("\nError in shmctl: ex,\n");
-    EXIT_ON_ERROR
+  while (wait(NULL) > 0) {
   }
-  if(shmctl(shmid_map, IPC_RMID, NULL)){
+  shmdt(mapptr);
+
+  if (shmctl(shmid_map, IPC_RMID, NULL)) {
     printf("\nError in shmctl: map,\n");
     EXIT_ON_ERROR
   }
-  if(msgctl(qid, IPC_RMID, NULL)){
+  if (msgctl(qid, IPC_RMID, NULL)) {
     printf("\nError in msgctl,\n");
     EXIT_ON_ERROR
   }

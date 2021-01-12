@@ -2,7 +2,7 @@
 
 void *mapptr;
 Point position;
-int *executing, qid;
+int qid;
 
 int main(int argc, char **argv) {
   int shmid;
@@ -10,22 +10,10 @@ int main(int argc, char **argv) {
   Message msg;
 
   logmsg("Init...", DB);
-  if (DEBUG) sleep(1);
+  if (DEBUG)
+    sleep(1);
 
   /************INIT************/
-  if ((shmkey = ftok("makefile", 'a')) < 0) {
-    EXIT_ON_ERROR
-  }
-
-  if ((shmid = shmget(shmkey, sizeof(int), 0644)) < 0) {
-    EXIT_ON_ERROR
-  }
-
-  if ((executing = shmat(shmid, NULL, 0)) < (int *)0) {
-    EXIT_ON_ERROR
-  }
-  *executing = 1;
-
   if ((shmkey = ftok("makefile", 'd')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -46,8 +34,7 @@ int main(int argc, char **argv) {
   if ((qid = msgget(qkey, 0644)) < 0) {
     EXIT_ON_ERROR
   }
-  
-  
+
   signal(SIGINT, SIGINThandler);
   sscanf(argv[1], "%d", &position.x);
   sscanf(argv[2], "%d", &position.y);
@@ -56,7 +43,7 @@ int main(int argc, char **argv) {
 
   incTrafficAt(position);
 
-  while (*executing) {
+  while (1) {
     msgrcv(qid, &msg, sizeof(Point), 0, 0);
     logmsg("Going to Nearest Source", DB);
     /* moveTo(getNearSource()); ********** TODO *********/
@@ -67,7 +54,8 @@ int main(int argc, char **argv) {
 }
 
 void moveTo(Point p) { /*pathfinding*/
-  if (DEBUG) usleep(5000000);
+  if (DEBUG)
+    usleep(5000000);
   logmsg("Moving to", DB);
   incTrafficAt(p);
 }
@@ -76,52 +64,60 @@ void incTrafficAt(Point p) {
   /*wait mutex*/
   ((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[p.x][p.y]->traffic++;
   logmsg("Incrementato traffico in", DB);
-  if(DEBUG) printf("\t(%d,%d)\n", p.x, p.y);
+  if (DEBUG)
+    printf("\t(%d,%d)\n", p.x, p.y);
   /*signal mutex*/
 }
 
 void logmsg(char *message, enum Level l) {
-  if(l <= DEBUG){
+  if (l <= DEBUG) {
     printf("[taxi-%d] %s\n", getpid(), message);
   }
 }
 
 void SIGINThandler(int sig) {
-  /* *executing = 0; */
   logmsg("Finishing up", DB);
   shmdt(mapptr);
-  shmdt(executing);
   logmsg("Graceful exit successful", DB);
   exit(0);
 }
 
-Point getNearSource(){
-	Point s;
-	for(int n = 1; n < SO_WIDTH;n++)
-	 for(int m = 1; m < SO_HEIGHT; m++){
-		if((position.x + (n-m))<SO_WIDTH && (position.y + m)<SO_HEIGHT && 
-										((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x + (n-m)][position.y + m]->state == SOURCE){
-			s.x = (position.x + (n-m));
-			s.y = (position.y + m);
-			return s;
-		}
-		if((position.x - (n-m))<SO_WIDTH && (position.y + m)>0 && 
-										((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x + (n-m)][position.y - m]->state == SOURCE){
-			s.x = (position.x + (n-m));
-			s.y = (position.y - m);
-			return s;
-		}
-		if((position.x - (n-m))>0 && (position.y + m)<SO_HEIGHT && 
-										((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x - (n-m)][position.y + m]->state == SOURCE){
-			s.x = (position.x - (n-m));
-			s.y= (position.y + m);
-			return s;
-		}
-		if((position.x - (n-m))>0 && (position.y + m)>0 && 
-										((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[position.x - (n-m)][position.y - m]->state == SOURCE){
-			s.x = (position.x - (n-m));
-			s.y = (position.y - m);
-			return s;
-		}
-	}
+Point getNearSource() {
+  Point s;
+  int n, m;
+  for (int n = 1; n < SO_WIDTH; n++)
+    for (int m = 1; m < SO_HEIGHT; m++) {
+      if ((position.x + (n - m)) < SO_WIDTH && (position.y + m) < SO_HEIGHT &&
+          ((Cell(*)[SO_WIDTH][SO_HEIGHT])
+               mapptr)[position.x + (n - m)][position.y + m]
+                  ->state == SOURCE) {
+        s.x = (position.x + (n - m));
+        s.y = (position.y + m);
+        return s;
+      }
+      if ((position.x - (n - m)) < SO_WIDTH && (position.y + m) > 0 &&
+          ((Cell(*)[SO_WIDTH][SO_HEIGHT])
+               mapptr)[position.x + (n - m)][position.y - m]
+                  ->state == SOURCE) {
+        s.x = (position.x + (n - m));
+        s.y = (position.y - m);
+        return s;
+      }
+      if ((position.x - (n - m)) > 0 && (position.y + m) < SO_HEIGHT &&
+          ((Cell(*)[SO_WIDTH][SO_HEIGHT])
+               mapptr)[position.x - (n - m)][position.y + m]
+                  ->state == SOURCE) {
+        s.x = (position.x - (n - m));
+        s.y = (position.y + m);
+        return s;
+      }
+      if ((position.x - (n - m)) > 0 && (position.y + m) > 0 &&
+          ((Cell(*)[SO_WIDTH][SO_HEIGHT])
+               mapptr)[position.x - (n - m)][position.y - m]
+                  ->state == SOURCE) {
+        s.x = (position.x - (n - m));
+        s.y = (position.y - m);
+        return s;
+      }
+    }
 }
