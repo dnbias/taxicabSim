@@ -1,21 +1,31 @@
 #include "generator.h"
 #include "general.h"
 
-int *executing,shmid_ex, shmid_map, shmid_sources, qid;
+int *executing, shmid_ex, shmid_map, shmid_sources, qid, sem_idW, sem_idR;
 void *mapptr, *sources_ptr;
 
 int main(int argc, char **argv) {
   Config conf;
   int i, xArg, yArg;
   int found = 0;
-  key_t shmkey, qkey;
+  key_t shmkey, qkey, semkeyW, semkeyR;
   char xArgBuffer[20], yArgBuffer[20];
   char *args[4];
   char *envp[1];
 
+
+  union semun argR, argW;
+  unsigned short semval[SO_WIDTH * SO_HEIGHT];
+  int cnt;
+  struct semid_ds idR, idW;
+  for(cnt=0; cnt<SO_WIDTH*SO_HEIGHT; cnt++)
+  	semval[i] = 0;
+
+
   /************ INIT ************/
   logmsg("Initialization", DB);
 if ((shmkey = ftok("makefile", 'a')) < 0) {
+	printf("shmget error\n");
     EXIT_ON_ERROR
   }
 
@@ -27,6 +37,7 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
     EXIT_ON_ERROR
   }
   if ((shmkey = ftok("makefile", 'm')) < 0) {
+  	printf("shmget error\n");
     EXIT_ON_ERROR
   }
 
@@ -40,6 +51,7 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
   }
 
   if ((shmkey = ftok("makefile", 's')) < 0) {
+  	printf("shmget error\n");
     EXIT_ON_ERROR
   }
 
@@ -58,6 +70,39 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
+  
+  
+  /*if((semkeyR = ftok("makefile", 'r')) < 0){
+  	printf("ftok error\n");
+  	EXIT_ON_ERROR
+  }
+  argR.buf = &idR;
+  argR.array = semval;
+  if((sem_idR = semget(semkeyR, SO_WIDTH*SO_HEIGHT, IPC_CREAT | 0666)) < 0){
+    printf("semget error\n");
+  	EXIT_ON_ERROR
+  }
+  if(semctl(sem_idR,0,SETALL, argR) < 0){
+    printf("semctl error\n");
+  	EXIT_ON_ERROR
+  }
+  
+  if((semkeyW = ftok("makefile", 'w')) < 0){
+    printf("ftok error\n");
+  	EXIT_ON_ERROR
+  }
+  if((sem_idW = semget(semkeyW, SO_WIDTH*SO_HEIGHT, IPC_CREAT | 0666)) < 0){
+  	printf("semget error\n");
+  	EXIT_ON_ERROR
+  }
+  argW.buf = &idW;
+  argW.array = semval;
+  if(semctl(sem_idW,0,SETALL, argW) < 0){
+  	printf("semctl error\n");
+  	EXIT_ON_ERROR
+  }*/
+  
+  
   parseConf(&conf);
   ((Cell(*)[8][8])mapptr)[4][0]->state = FREE;
   logmsg("Generate map...", DB);
