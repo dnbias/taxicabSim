@@ -1,26 +1,36 @@
 #include "generator.h"
 #include "general.h"
 
-int shmid_map, shmid_sources, qid;
+int *executing,shmid_ex, shmid_map, shmid_sources, qid;
 void *mapptr, *sources_ptr;
 
 int main(int argc, char **argv) {
   Config conf;
   int i, xArg, yArg;
   int found = 0;
-  key_t shmkey1, shmkey2, qkey;
+  key_t shmkey, qkey;
   char xArgBuffer[20], yArgBuffer[20];
   char *args[4];
   char *envp[1];
 
   /************ INIT ************/
   logmsg("Initialization", DB);
-
-  if ((shmkey2 = ftok("makefile", 'm')) < 0) {
+if ((shmkey = ftok("makefile", 'a')) < 0) {
     EXIT_ON_ERROR
   }
 
-  if ((shmid_map = shmget(shmkey2, 8 * 8 * sizeof(Cell), IPC_CREAT | 0666)) <
+  if ((shmid_ex = shmget(shmkey, sizeof(int), IPC_CREAT | 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((executing = shmat(shmid_ex, NULL, 0)) < (int *)0) {
+    EXIT_ON_ERROR
+  }
+  if ((shmkey = ftok("makefile", 'm')) < 0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((shmid_map = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell), IPC_CREAT | 0666)) <
       0) {
     EXIT_ON_ERROR
   }
@@ -29,11 +39,11 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
-  if ((shmkey1 = ftok("makefile", 's')) < 0) {
+  if ((shmkey = ftok("makefile", 's')) < 0) {
     EXIT_ON_ERROR
   }
 
-  if ((shmid_sources = shmget(shmkey1, MAX_SOURCES * sizeof(Point),
+  if ((shmid_sources = shmget(shmkey, MAX_SOURCES * sizeof(Point),
                               IPC_CREAT | 0666)) < 0) {
     EXIT_ON_ERROR
   }
