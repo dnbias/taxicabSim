@@ -14,12 +14,12 @@ int main(int argc, char **argv) {
   char *envp[1];
 
 
-  union semun argR, argW;
-  unsigned short semval[SO_WIDTH * SO_HEIGHT];
+  /*union semun argR, argW;
+  unsigned short semval[WIDTH*HEIGHT];
   int cnt;
   struct semid_ds idR, idW;
-  for(cnt=0; cnt<SO_WIDTH*SO_HEIGHT; cnt++)
-  	semval[i] = 0;
+  for(cnt=0; cnt<WIDTH*HEIGHT; cnt++)
+  	semval[cont] = 0;*/
 
 
   /************ INIT ************/
