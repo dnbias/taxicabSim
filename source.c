@@ -1,6 +1,6 @@
 #include "source.h"
 
-void *mapptr;
+Cell (*mapptr)[][SO_HEIGHT];
 int qid;
 
 int main(int argc, char **argv) {
@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
   Message msg;
 
   /********** INIT **********/
-  if ((shmkey = ftok("makefile", 'm')) < 0) {
+  if ((shmkey = ftok("./.gitignore", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
@@ -21,17 +21,18 @@ int main(int argc, char **argv) {
     printf("shmget error\n");
     EXIT_ON_ERROR
   }
-  if ((mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
+  if ((void *)(mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
+    logmsg("ERROR shmat - mapptr", RUNTIME);
     EXIT_ON_ERROR
   }
-  if ((qkey = ftok("makefile", 'q')) < 0) {
+  if ((qkey = ftok("./.gitignore", 'q')) < 0) {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, 0644)) < 0) {
     EXIT_ON_ERROR
   }
   signal(SIGINT, SIGINThandler);
-  srandom(time(NULL));
+  srand(time(NULL));
   /********** END-INIT **********/
 
   logmsg("Going into execution cycle", DB);

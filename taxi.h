@@ -1,6 +1,7 @@
 #ifndef __TAXI_H_
 #define __TAXI_H_
 #include "general.h"
+#include <limits.h>
 
 void SIGINThandler(int);
 

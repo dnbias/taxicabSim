@@ -1,6 +1,6 @@
 #include "taxi.h"
-
-void *mapptr, *sources_ptr;
+Cell (*mapptr)[][SO_HEIGHT];
+Point (*sources_ptr)[MAX_SOURCES];
 Point position;
 int qid;
 
@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
     sleep(1);
 
   /************INIT************/
-  if ((shmkey = ftok("makefile", 's')) < 0) {
+  if ((shmkey = ftok("./.gitignore", 's')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
@@ -25,11 +25,11 @@ int main(int argc, char **argv) {
     printf("shmget error\n");
     EXIT_ON_ERROR
   }
-  if ((sources_ptr = shmat(shmid, NULL, 0)) < (void *)0) {
+  if ((void *)(sources_ptr = shmat(shmid, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
 
-  if ((shmkey = ftok("makefile", 'm')) < 0) {
+  if ((shmkey = ftok("./.gitignore", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
@@ -40,10 +40,11 @@ int main(int argc, char **argv) {
     printf("shmget error\n");
     EXIT_ON_ERROR
   }
-  if ((mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
+  if ((void *)(mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
+    logmsg("ERROR shmat - mapptr", RUNTIME);
     EXIT_ON_ERROR
   }
-  if ((qkey = ftok("makefile", 'q')) < 0) {
+  if ((qkey = ftok("./.gitignore", 'q')) < 0) {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, 0644)) < 0) {
@@ -69,15 +70,13 @@ int main(int argc, char **argv) {
 }
 
 void moveTo(Point p) { /*pathfinding*/
-  if (DEBUG)
-    usleep(5000000);
   logmsg("Moving to", DB);
   incTrafficAt(p);
 }
 
 void incTrafficAt(Point p) {
   /*wait mutex*/
-  ((Cell(*)[SO_WIDTH][SO_HEIGHT])mapptr)[p.x][p.y]->traffic++;
+  (*mapptr)[p.x][p.y].traffic++;
   logmsg("Incrementato traffico in", DB);
   if (DEBUG)
     printf("\t(%d,%d)\n", p.x, p.y);
@@ -100,11 +99,13 @@ void SIGINThandler(int sig) {
 
 Point getNearSource() {
   Point s;
-  int n, temp, d = 0;
+  int n, temp, d = INT_MAX;
   for (n = 0; n < MAX_SOURCES; n++) {
-    temp = abs(position.x - ((Point(*)[MAX_SOURCES])sources_ptr)[n]->x) +
-           abs(position.y - ((Point(*)[MAX_SOURCES])sources_ptr)[n]->y);
+    temp = abs(position.x - (*sources_ptr)[n].x) +
+           abs(position.y - (*sources_ptr)[n].y);
     if (d > temp)
       d = temp;
+    s = (*sources_ptr)[n];
   }
+  return s;
 }
