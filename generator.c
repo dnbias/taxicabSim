@@ -14,12 +14,12 @@ int main(int argc, char **argv) {
   char *envp[1];
 
 
-  /*union semun argR, argW;
-  unsigned short semval[WIDTH*HEIGHT];
+  union semun argR, argW;
+  unsigned short semval[SO_WIDTH*SO_HEIGHT];
   int cnt;
   struct semid_ds idR, idW;
-  for(cnt=0; cnt<WIDTH*HEIGHT; cnt++)
-  	semval[cont] = 0;*/
+  for(cnt=0; cnt<SO_WIDTH*SO_HEIGHT; cnt++)
+  	semval[cnt] = 0;
 
 
   /************ INIT ************/
@@ -72,7 +72,7 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
   }
   
   
-  /*if((semkeyR = ftok("makefile", 'r')) < 0){
+  if((semkeyR = ftok("makefile", 'r')) < 0){
   	printf("ftok error\n");
   	EXIT_ON_ERROR
   }
@@ -100,8 +100,7 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
   if(semctl(sem_idW,0,SETALL, argW) < 0){
   	printf("semctl error\n");
   	EXIT_ON_ERROR
-  }*/
-  
+  }
   
   parseConf(&conf);
   ((Cell(*)[8][8])mapptr)[4][0]->state = FREE;

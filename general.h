@@ -56,11 +56,11 @@ typedef struct {
 
 int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p);
 
-/*union semun {
+union semun {
 	int val;    
     struct semid_ds *buf;    
     unsigned short  *array;  
     struct seminfo  *__buf;  
-};*/
+};
 
 #endif /* __GENERAL_H_ */

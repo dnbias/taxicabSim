@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
   }
 
 
-  /*if((semkeyR = ftok("makefile", 'r')) < 0){
+  if((semkeyR = ftok("makefile", 'r')) < 0){
   	printf("ftok error\n");
   	EXIT_ON_ERROR
   }
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
   if((sem_idW = semget(semkeyW, 0, 0)) < 0){
     printf("semget error\n");
   	EXIT_ON_ERROR
-  }*/
+  }
 
 
   signal(SIGINT, SIGINThandler);
@@ -128,26 +128,21 @@ Point getNearSource() {
   }
 }
 /*FUNZIONI PER CONTROLLARE SEMAFORI*/
-/*int semWait(Point p, int sem_id){
-	struct sembuf sops;
-	sops.sem_num = p.y*SO_WIDTH + p.x;
-	sops.sem_op = 0;
-	sops.sem_flg = 0;
-	return semop(sem_id, &sops,1);
+int semReserveUse(Point p, int sem_id){
+	struct sembuf sops[2];
+	sops[0].sem_num = p.y*SO_WIDTH + p.x;
+	sops[0].sem_op = 0;
+	sops[0].sem_flg = 0;
+	sops[1].sem_num = p.y*SO_WIDTH + p.x;
+	sops[1].sem_op = 1;
+	sops[1].sem_flg = 0;
+	return semop(sem_id, sops,2);
 }
 
-int semUtilize(Point p, int sem_id){
-	struct sembuf sops;
-	sops.sem_num = p.y*SO_WIDTH + p.x;
-	sops.sem_op = 1;
-	sops.sem_flg = 0;
-	return semop(sem_id, &sops,1);
-}
-
-int semRelese(Point p, int sem_id){
+int semRelease(Point p, int sem_id){
 	struct sembuf sops;
 	sops.sem_num = p.y*SO_WIDTH + p.x;
 	sops.sem_op = -1;
 	sops.sem_flg = 0;
 	return semop(sem_id, &sops,1);
-}*/
+}
