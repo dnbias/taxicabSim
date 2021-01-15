@@ -1,26 +1,27 @@
 #include "generator.h"
 #include "general.h"
 
-int *executing, shmid_ex, shmid_map, shmid_sources, qid, sem_idW, sem_idR;
-void *mapptr, *sources_ptr;
+int shmid_sources, shmid_map, shmid_ex, qid, sem_idW, sem_idR;;
+Point (*sourcesList_ptr)[MAX_SOURCES];
+Cell (*mapptr)[][SO_HEIGHT];
 
 int main(int argc, char **argv) {
   Config conf;
-  int i, xArg, yArg;
-  int found = 0;
+  int i, xArg, yArg, arg, *executing;
   key_t shmkey, qkey, semkeyW, semkeyR;
-  char xArgBuffer[20], yArgBuffer[20];
-  char *args[4];
+  char xArgBuffer[5], yArgBuffer[5], argBuffer1[5], argBuffer2[5],
+      argBuffer3[5];
+  char *args[6];
   char *envp[1];
 
-
+  int col, row;
+  
   union semun argR, argW;
   unsigned short semval[SO_WIDTH*SO_HEIGHT];
   int cnt;
   struct semid_ds idR, idW;
   for(cnt=0; cnt<SO_WIDTH*SO_HEIGHT; cnt++)
   	semval[cnt] = 0;
-
 
   /************ INIT ************/
   logmsg("Initialization", DB);
@@ -33,38 +34,28 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
     EXIT_ON_ERROR
   }
 
-  if ((executing = shmat(shmid_ex, NULL, 0)) < (int *)0) {
+  if ((shmkey = ftok("./.gitignore", 'm')) < 0) {
     EXIT_ON_ERROR
   }
-  if ((shmkey = ftok("makefile", 'm')) < 0) {
-  	printf("shmget error\n");
+  if ((shmid_map = shmget(shmkey, 0, 0644)) < 0) {
     EXIT_ON_ERROR
   }
-
-  if ((shmid_map = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell), IPC_CREAT | 0666)) <
-      0) {
+  if ((void *)(mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
 
-  if ((mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
+  if ((shmkey = ftok("./.gitignore", 's')) < 0) {
+    EXIT_ON_ERROR
+  }
+  if ((shmid_sources =
+           shmget(shmkey, MAX_SOURCES * sizeof(Point), IPC_CREAT | 0666)) < 0) {
+    EXIT_ON_ERROR
+  }
+  if ((void *)(sourcesList_ptr = shmat(shmid_sources, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
 
-  if ((shmkey = ftok("makefile", 's')) < 0) {
-  	printf("shmget error\n");
-    EXIT_ON_ERROR
-  }
-
-  if ((shmid_sources = shmget(shmkey, MAX_SOURCES * sizeof(Point),
-                              IPC_CREAT | 0666)) < 0) {
-    EXIT_ON_ERROR
-  }
-
-  if ((sources_ptr = shmat(shmid_sources, NULL, 0)) < (void *)0) {
-    EXIT_ON_ERROR
-  }
-
-  if ((qkey = ftok("makefile", 'q')) < 0) {
+  if ((qkey = ftok("./.gitignore", 'q')) < 0) {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
@@ -103,7 +94,17 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
   }
   
   parseConf(&conf);
-  ((Cell(*)[8][8])mapptr)[4][0]->state = FREE;
+  if (DEBUG) {
+    logmsg("Testing Map:", DB);
+    for (col = 0; col < SO_WIDTH; col++) {
+      for (row = 0; row < SO_HEIGHT; row++) {
+        (*mapptr)[col][row].state = FREE;
+        (*mapptr)[col][row].capacity = 100;
+      }
+    }
+    logmsg("OK", DB);
+  }
+
   logmsg("Generate map...", DB);
   generateMap(mapptr, &conf);
   signal(SIGINT, SIGINThandler);
@@ -113,29 +114,21 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
 
   logmsg("Printing map...", DB);
   printMap(mapptr);
-  if (DEBUG)
-    sleep(1);
-
   logmsg("Forking Sources...", DB);
-  if (DEBUG)
-    usleep(2000000);
-  for (i = 0; i < conf.SO_SOURCES; i++) {
+
+  for (i = 1; i < conf.SO_SOURCES + 1; i++) {
     if (DEBUG) {
-      printf("\tSource n. %d created\n", i);
-      sleep(1);
+      printf("\tCreating Source n. %d\n", i);
     }
     switch (fork()) {
     case -1:
       EXIT_ON_ERROR
     case 0:
-      xArg = ((Point(*)[MAX_SOURCES])sources_ptr)[i]->x;
-      yArg = ((Point(*)[MAX_SOURCES])sources_ptr)[i]->y;
-      snprintf(xArgBuffer, 20, "%d", xArg);
-      snprintf(yArgBuffer, 20, "%d", yArg);
+      arg = i;
+      snprintf(argBuffer1, 5, "%d", arg);
       args[0] = "source";
-      args[1] = xArgBuffer;
-      args[2] = yArgBuffer;
-      args[3] = NULL;
+      args[1] = argBuffer1;
+      args[2] = NULL;
       envp[0] = NULL;
       execve("source", args, envp);
       /* here execv failed */
@@ -155,12 +148,18 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
     case 0:
       xArg = (rand() % SO_WIDTH);
       yArg = (rand() % SO_HEIGHT);
-      snprintf(xArgBuffer, 20, "%d", xArg);
-      snprintf(yArgBuffer, 20, "%d", yArg);
+      snprintf(xArgBuffer, 5, "%d", xArg);
+      snprintf(yArgBuffer, 5, "%d", yArg);
+      snprintf(argBuffer1, 5, "%d", conf.SO_TIMENSEC_MIN);
+      snprintf(argBuffer2, 5, "%d", conf.SO_TIMENSEC_MAX);
+      snprintf(argBuffer3, 5, "%d", conf.SO_TIMEOUT);
       args[0] = "taxi";
       args[1] = xArgBuffer;
       args[2] = yArgBuffer;
-      args[3] = NULL;
+      args[3] = argBuffer1;
+      args[4] = argBuffer2;
+      args[5] = argBuffer3;
+      args[6] = NULL;
       envp[0] = NULL;
       execve("taxi", args, envp);
       /* here execve failed */
@@ -223,14 +222,16 @@ void parseConf(Config *conf) {
  *  Checks for adiacent cells at matrix[x][y] marked as HOLE, returns 0 on
  *  success
  */
-int checkNoAdiacentHoles(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], int x, int y) {
+int checkNoAdiacentHoles(Cell (*matrix)[][SO_HEIGHT], int x, int y) {
   int b = 0;
   int i, j;
+  time_t startTime;
+
   for (i = 0; i < 3; i++) {
     for (j = 0; j < 3; j++) {
       if ((x + i - 1) >= 0 && (x + i - 1) <= SO_WIDTH && (y + j - 1) >= 0 &&
           (y + j - 1) <= SO_HEIGHT &&
-          matrix[x + i - 1][y + j - 1]->state == HOLE) {
+          (*matrix)[x + i - 1][y + j - 1].state == HOLE) {
         b = 1;
       }
     }
@@ -241,40 +242,53 @@ int checkNoAdiacentHoles(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], int x, int y) {
 /*
  * Populates matrix[][] with Cell struct with status Free, Source, Hole
  */
-void generateMap(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], Config *conf) {
+void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
   int x, y, r, i;
-  Point p;
-  srandom(time(NULL));
+  time_t startTime;
+  srand(time(NULL));
   for (x = 0; x < SO_WIDTH; x++) {
     for (y = 0; y < SO_HEIGHT; y++) {
-      matrix[x][y]->state = FREE;
-      matrix[x][y]->traffic = 0;
-      matrix[x][y]->visits = 0;
+      (*matrix)[x][y].state = FREE;
+      (*matrix)[x][y].traffic = 0;
+      (*matrix)[x][y].visits = 0;
       r = rand();
-      matrix[x][y]->capacity =
+      (*matrix)[x][y].capacity =
           (r % (conf->SO_CAP_MAX - conf->SO_CAP_MIN)) + conf->SO_CAP_MIN;
     }
   }
-
+  startTime = time(NULL); /* To stop the user from using too many holes */
   for (i = conf->SO_HOLES; i > 0; i--) {
+    if (time(NULL) - startTime > 2) {
+      logmsg("I'm sorry, you selected too many holes to fit the map:/n/tRetry "
+             "with less. Quitting...",
+             RUNTIME);
+      exit(0);
+    }
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
 
     if (checkNoAdiacentHoles(matrix, x, y) == 0) {
-      matrix[x][y]->state = HOLE;
+      (*matrix)[x][y].state = HOLE;
     } else {
       i++;
     }
   }
+  startTime = time(NULL); /* To stop the user from using too many sources */
   logmsg("Generating Sources...", DB);
   for (i = 0; i < conf->SO_SOURCES; i++) {
+    if (time(NULL) - startTime > 2) {
+      logmsg("It seems you selected too many sources to fit the map:/n/tRetry "
+             "with less. Quitting...",
+             RUNTIME);
+      exit(0);
+    }
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
 
-    if (matrix[x][y]->state == FREE) {
-      matrix[x][y]->state = SOURCE;
-      ((Point(*)[MAX_SOURCES])sources_ptr)[i]->x = x;
-      ((Point(*)[MAX_SOURCES])sources_ptr)[i]->y = y;
+    if ((*matrix)[x][y].state == FREE) {
+      (*matrix)[x][y].state = SOURCE;
+      (*sourcesList_ptr)[i].x = x;
+      (*sourcesList_ptr)[i].y = y;
     } else {
       i--;
     }
@@ -285,13 +299,13 @@ void generateMap(Cell (*matrix)[SO_WIDTH][SO_HEIGHT], Config *conf) {
  * Print on stdout the map in a readable format:
  *     FREE Cells are printed as   [ ]
  *     SOURCE Cells are printed as [S]
- *     HOLE Cells are printed as   [X]
+ *     HOLE Cells are printed as   [#]
  */
-void printMap(Cell (*map)[SO_WIDTH][SO_HEIGHT]) {
+void printMap(Cell (*map)[][SO_HEIGHT]) {
   int x, y;
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_WIDTH; x++) {
-      switch (map[x][y]->state) {
+      switch ((*map)[x][y].state) {
       case FREE:
         printf("[ ]");
         break;
@@ -299,7 +313,7 @@ void printMap(Cell (*map)[SO_WIDTH][SO_HEIGHT]) {
         printf("[S]");
         break;
       case HOLE:
-        printf("[X]");
+        printf("[#]");
       }
     }
     printf("\n");
@@ -313,18 +327,14 @@ void logmsg(char *message, enum Level l) {
 }
 
 /*  Signal Handlers  */
-void SIGINThandler(int sig) {
+void SIGINThandler(int sig) { /* TODO Rendere signal-safe */
   printf("=============== Received SIGINT ==============\n");
   while (wait(NULL) > 0) {
   }
   shmdt(mapptr);
-  shmdt(sources_ptr);
+  shmdt(sourcesList_ptr);
   if (shmctl(shmid_sources, IPC_RMID, NULL)) {
     printf("\nError in shmctl: sources,\n");
-    EXIT_ON_ERROR
-  }
-  if (shmctl(shmid_map, IPC_RMID, NULL)) {
-    printf("\nError in shmctl: map,\n");
     EXIT_ON_ERROR
   }
   if (msgctl(qid, IPC_RMID, NULL)) {
@@ -335,7 +345,7 @@ void SIGINThandler(int sig) {
   exit(0);
 }
 
-void ALARMhandler(int sig) {
+void ALARMhandler(int sig) { /* TODO Rendere signal-safe */
   signal(SIGINT, SIGINThandler);
   printf("=============== Received ALARM ===============\n");
   kill(0, SIGINT);

@@ -1,6 +1,6 @@
 #include "source.h"
 
-void *mapptr;
+Cell (*mapptr)[][SO_HEIGHT];
 int qid;
 
 int main(int argc, char **argv) {
@@ -8,9 +8,9 @@ int main(int argc, char **argv) {
   key_t shmkey, qkey;
   int found;
   Message msg;
-
+  struct timespec msgInterval;
   /********** INIT **********/
-  if ((shmkey = ftok("makefile", 'm')) < 0) {
+  if ((shmkey = ftok("./.gitignore", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
@@ -21,39 +21,43 @@ int main(int argc, char **argv) {
     printf("shmget error\n");
     EXIT_ON_ERROR
   }
-  if ((mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
+  if ((void *)(mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
+    logmsg("ERROR shmat - mapptr", RUNTIME);
     EXIT_ON_ERROR
   }
-  if ((qkey = ftok("makefile", 'q')) < 0) {
+  if ((qkey = ftok("./.gitignore", 'q')) < 0) {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, 0644)) < 0) {
     EXIT_ON_ERROR
   }
-  signal(SIGINT, SIGINThandler);
-  srandom(time(NULL));
+  signal(SIGINT, SIGINThandler); /* TODO implementare con sigaction() */
+  srand(time(NULL));
+  sscanf(argv[1], "%d", &msg.type);
+
+  msgInterval.tv_sec = 0;
+  msgInterval.tv_nsec = 200000000;
   /********** END-INIT **********/
 
   logmsg("Going into execution cycle", DB);
   if (DEBUG)
-    sleep(1);
-  msg.type = getpid();
-  while (1) {
-    while (!found) {
-      msg.destination.x = (rand() % SO_WIDTH);
-      msg.destination.y = (rand() % SO_HEIGHT);
-      if (isFree(mapptr, msg.destination)) {
-        found = 1;
+    while (1) {
+      nanosleep(&msgInterval, NULL);
+      while (!found) {
+        msg.destination.x = (rand() % SO_WIDTH);
+        msg.destination.y = (rand() % SO_HEIGHT);
+        if (isFree(mapptr, msg.destination)) {
+          found = 1;
+        }
       }
+      logmsg("Sending message:", DB);
+      if (DEBUG) {
+        printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
+               msg.destination.y);
+      }
+      msgsnd(qid, &msg, sizeof(Point), 0);
+      found = 0;
     }
-    logmsg("Sending message:", DB);
-    if (DEBUG) {
-      printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
-             msg.destination.y);
-    }
-    msgsnd(qid, &msg, sizeof(Point), 0);
-    found = 0;
-  }
 }
 
 void logmsg(char *message, enum Level l) {
@@ -64,7 +68,7 @@ void logmsg(char *message, enum Level l) {
   }
 }
 
-void SIGINThandler(int sig) {
+void SIGINThandler(int sig) { /* TODO implement signal-safety */
   logmsg("Finishing up", DB);
   shmdt(mapptr);
   logmsg("Graceful exit successful", DB);
