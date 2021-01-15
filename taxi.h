@@ -2,6 +2,7 @@
 #define __TAXI_H_
 #include "general.h"
 #include <limits.h>
+#include <math.h>
 
 void SIGINThandler(int);
 

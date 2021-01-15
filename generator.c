@@ -2,15 +2,16 @@
 #include "general.h"
 
 int shmid_sources, shmid_map, shmid_ex, qid;
-Point (*sources_ptr)[MAX_SOURCES];
+Point (*sourcesList_ptr)[MAX_SOURCES];
 Cell (*mapptr)[][SO_HEIGHT];
 
 int main(int argc, char **argv) {
   Config conf;
-  int i, xArg, yArg, *executing;
+  int i, xArg, yArg, arg, *executing;
   key_t shmkey, qkey;
-  char xArgBuffer[20], yArgBuffer[20];
-  char *args[4];
+  char xArgBuffer[5], yArgBuffer[5], argBuffer1[5], argBuffer2[5],
+      argBuffer3[5];
+  char *args[6];
   char *envp[1];
 
   int col, row;
@@ -34,7 +35,7 @@ int main(int argc, char **argv) {
            shmget(shmkey, MAX_SOURCES * sizeof(Point), IPC_CREAT | 0666)) < 0) {
     EXIT_ON_ERROR
   }
-  if ((void *)(sources_ptr = shmat(shmid_sources, NULL, 0)) < (void *)0) {
+  if ((void *)(sourcesList_ptr = shmat(shmid_sources, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
 
@@ -45,14 +46,16 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
   parseConf(&conf);
-  logmsg("Testing Map:", DB);
-  for (col = 0; col < SO_WIDTH; col++) {
-    for (row = 0; row < SO_HEIGHT; row++) {
-      (*mapptr)[col][row].state = FREE;
-      (*mapptr)[col][row].capacity = 100;
+  if (DEBUG) {
+    logmsg("Testing Map:", DB);
+    for (col = 0; col < SO_WIDTH; col++) {
+      for (row = 0; row < SO_HEIGHT; row++) {
+        (*mapptr)[col][row].state = FREE;
+        (*mapptr)[col][row].capacity = 100;
+      }
     }
+    logmsg("OK", DB);
   }
-  logmsg("OK", DB);
 
   logmsg("Generate map...", DB);
   generateMap(mapptr, &conf);
@@ -73,8 +76,11 @@ int main(int argc, char **argv) {
     case -1:
       EXIT_ON_ERROR
     case 0:
+      arg = i;
+      snprintf(argBuffer1, 5, "%d", arg);
       args[0] = "source";
-      args[1] = NULL;
+      args[1] = argBuffer1;
+      args[2] = NULL;
       envp[0] = NULL;
       execve("source", args, envp);
       /* here execv failed */
@@ -94,12 +100,18 @@ int main(int argc, char **argv) {
     case 0:
       xArg = (rand() % SO_WIDTH);
       yArg = (rand() % SO_HEIGHT);
-      snprintf(xArgBuffer, 20, "%d", xArg);
-      snprintf(yArgBuffer, 20, "%d", yArg);
+      snprintf(xArgBuffer, 5, "%d", xArg);
+      snprintf(yArgBuffer, 5, "%d", yArg);
+      snprintf(argBuffer1, 5, "%d", conf.SO_TIMENSEC_MIN);
+      snprintf(argBuffer2, 5, "%d", conf.SO_TIMENSEC_MAX);
+      snprintf(argBuffer3, 5, "%d", conf.SO_TIMEOUT);
       args[0] = "taxi";
       args[1] = xArgBuffer;
       args[2] = yArgBuffer;
-      args[3] = NULL;
+      args[3] = argBuffer1;
+      args[4] = argBuffer2;
+      args[5] = argBuffer3;
+      args[6] = NULL;
       envp[0] = NULL;
       execve("taxi", args, envp);
       /* here execve failed */
@@ -165,6 +177,8 @@ void parseConf(Config *conf) {
 int checkNoAdiacentHoles(Cell (*matrix)[][SO_HEIGHT], int x, int y) {
   int b = 0;
   int i, j;
+  time_t startTime;
+
   for (i = 0; i < 3; i++) {
     for (j = 0; j < 3; j++) {
       if ((x + i - 1) >= 0 && (x + i - 1) <= SO_WIDTH && (y + j - 1) >= 0 &&
@@ -182,6 +196,7 @@ int checkNoAdiacentHoles(Cell (*matrix)[][SO_HEIGHT], int x, int y) {
  */
 void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
   int x, y, r, i;
+  time_t startTime;
   srand(time(NULL));
   for (x = 0; x < SO_WIDTH; x++) {
     for (y = 0; y < SO_HEIGHT; y++) {
@@ -193,8 +208,14 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
           (r % (conf->SO_CAP_MAX - conf->SO_CAP_MIN)) + conf->SO_CAP_MIN;
     }
   }
-
+  startTime = time(NULL); /* To stop the user from using too many holes */
   for (i = conf->SO_HOLES; i > 0; i--) {
+    if (time(NULL) - startTime > 2) {
+      logmsg("I'm sorry, you selected too many holes to fit the map:/n/tRetry "
+             "with less. Quitting...",
+             RUNTIME);
+      exit(0);
+    }
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
 
@@ -204,15 +225,22 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
       i++;
     }
   }
+  startTime = time(NULL); /* To stop the user from using too many sources */
   logmsg("Generating Sources...", DB);
   for (i = 0; i < conf->SO_SOURCES; i++) {
+    if (time(NULL) - startTime > 2) {
+      logmsg("It seems you selected too many sources to fit the map:/n/tRetry "
+             "with less. Quitting...",
+             RUNTIME);
+      exit(0);
+    }
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
 
     if ((*matrix)[x][y].state == FREE) {
       (*matrix)[x][y].state = SOURCE;
-      (*sources_ptr)[i].x = x;
-      (*sources_ptr)[i].y = y;
+      (*sourcesList_ptr)[i].x = x;
+      (*sourcesList_ptr)[i].y = y;
     } else {
       i--;
     }
@@ -223,7 +251,7 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
  * Print on stdout the map in a readable format:
  *     FREE Cells are printed as   [ ]
  *     SOURCE Cells are printed as [S]
- *     HOLE Cells are printed as   [X]
+ *     HOLE Cells are printed as   [#]
  */
 void printMap(Cell (*map)[][SO_HEIGHT]) {
   int x, y;
@@ -237,7 +265,7 @@ void printMap(Cell (*map)[][SO_HEIGHT]) {
         printf("[S]");
         break;
       case HOLE:
-        printf("[X]");
+        printf("[#]");
       }
     }
     printf("\n");
@@ -251,12 +279,12 @@ void logmsg(char *message, enum Level l) {
 }
 
 /*  Signal Handlers  */
-void SIGINThandler(int sig) {
+void SIGINThandler(int sig) { /* TODO Rendere signal-safe */
   printf("=============== Received SIGINT ==============\n");
   while (wait(NULL) > 0) {
   }
   shmdt(mapptr);
-  shmdt(sources_ptr);
+  shmdt(sourcesList_ptr);
   if (shmctl(shmid_sources, IPC_RMID, NULL)) {
     printf("\nError in shmctl: sources,\n");
     EXIT_ON_ERROR
@@ -269,7 +297,7 @@ void SIGINThandler(int sig) {
   exit(0);
 }
 
-void ALARMhandler(int sig) {
+void ALARMhandler(int sig) { /* TODO Rendere signal-safe */
   signal(SIGINT, SIGINThandler);
   printf("=============== Received ALARM ===============\n");
   kill(0, SIGINT);

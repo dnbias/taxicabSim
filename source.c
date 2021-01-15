@@ -8,7 +8,7 @@ int main(int argc, char **argv) {
   key_t shmkey, qkey;
   int found;
   Message msg;
-
+  struct timespec msgInterval;
   /********** INIT **********/
   if ((shmkey = ftok("./.gitignore", 'm')) < 0) {
     printf("ftok error\n");
@@ -31,30 +31,33 @@ int main(int argc, char **argv) {
   if ((qid = msgget(qkey, 0644)) < 0) {
     EXIT_ON_ERROR
   }
-  signal(SIGINT, SIGINThandler);
+  signal(SIGINT, SIGINThandler); /* TODO implementare con sigaction() */
   srand(time(NULL));
+  sscanf(argv[1], "%d", &msg.type);
+
+  msgInterval.tv_sec = 0;
+  msgInterval.tv_nsec = 200000000;
   /********** END-INIT **********/
 
   logmsg("Going into execution cycle", DB);
   if (DEBUG)
-    sleep(1);
-  msg.type = getpid();
-  while (1) {
-    while (!found) {
-      msg.destination.x = (rand() % SO_WIDTH);
-      msg.destination.y = (rand() % SO_HEIGHT);
-      if (isFree(mapptr, msg.destination)) {
-        found = 1;
+    while (1) {
+      nanosleep(&msgInterval, NULL);
+      while (!found) {
+        msg.destination.x = (rand() % SO_WIDTH);
+        msg.destination.y = (rand() % SO_HEIGHT);
+        if (isFree(mapptr, msg.destination)) {
+          found = 1;
+        }
       }
+      logmsg("Sending message:", DB);
+      if (DEBUG) {
+        printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
+               msg.destination.y);
+      }
+      msgsnd(qid, &msg, sizeof(Point), 0);
+      found = 0;
     }
-    logmsg("Sending message:", DB);
-    if (DEBUG) {
-      printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
-             msg.destination.y);
-    }
-    msgsnd(qid, &msg, sizeof(Point), 0);
-    found = 0;
-  }
 }
 
 void logmsg(char *message, enum Level l) {
@@ -65,7 +68,7 @@ void logmsg(char *message, enum Level l) {
   }
 }
 
-void SIGINThandler(int sig) {
+void SIGINThandler(int sig) { /* TODO implement signal-safety */
   logmsg("Finishing up", DB);
   shmdt(mapptr);
   logmsg("Graceful exit successful", DB);
