@@ -1,4 +1,5 @@
 #include "taxi.h"
+int shmid, source_id, sem_idR, sem_idW;
 Cell (*mapptr)[][SO_HEIGHT];
 Point (*sourcesList_ptr)[MAX_SOURCES];
 Point position;
@@ -6,7 +7,6 @@ int qid, timensec_min, timensec_max, timeout;
 
 int main(int argc, char **argv) {
 
-  int shmid, source_id, sem_idR, sem_idW;
   key_t shmkey, qkey,  semkeyR, semkeyW;
   Message msg;
   const struct timespec nsecs[] = {0, 500000000L};
@@ -67,7 +67,6 @@ int main(int argc, char **argv) {
     printf("semget error\n");
   	EXIT_ON_ERROR
   }
-
 
   signal(SIGINT, SIGINThandler);
   sscanf(argv[1], "%d", &position.x);
@@ -217,7 +216,13 @@ void moveTo(Point dest) { /*pathfinding*/
 
 void incTrafficAt(Point p) {
   /*wait mutex*/
+  if(scrivi(p) < 0){
+  	EXIT_ON_ERROR
+  }
   (*mapptr)[p.x][p.y].traffic++;
+  if(release(p) < 0){
+  	EXIT_ON_ERROR
+  }
   logmsg("Incrementato traffico in", DB);
   if (DEBUG)
     printf("\t(%d,%d)\n", p.x, p.y);
@@ -253,21 +258,46 @@ Point getNearSource(int *source_id) {
   return s;
 }
 /*FUNZIONI PER CONTROLLARE SEMAFORI*/
-int semReserveUse(Point p, int sem_id){
-	struct sembuf sops[2];
-	sops[0].sem_num = p.y*SO_WIDTH + p.x;
-	sops[0].sem_op = 0;
-	sops[0].sem_flg = 0;
-	sops[1].sem_num = p.y*SO_WIDTH + p.x;
-	sops[1].sem_op = 1;
-	sops[1].sem_flg = 0;
-	return semop(sem_id, sops,2);
+int leggi(Point p){
+	struct sembuf writer[2], reader;
+	writer[0].sem_num = p.y*SO_WIDTH + p.x;
+	writer[0].sem_op = 0;
+	writer[0].sem_flg = 0;
+	writer[1].sem_num = p.y*SO_WIDTH + p.x;
+	writer[1].sem_op = 1;
+	writer[1].sem_flg = 0;
+	reader.sem_num = p.y*SO_WIDTH + p.x;
+	reader.sem_op = 1;
+	reader.sem_flg = 0;
+	return semop(sem_idW, writer, 2) + semop(sem_idR, &reader, 1);
 }
 
-int semRelease(Point p, int sem_id){
-	struct sembuf sops;
-	sops.sem_num = p.y*SO_WIDTH + p.x;
-	sops.sem_op = -1;
-	sops.sem_flg = 0;
-	return semop(sem_id, &sops,1);
+int scrivi(Point p){
+	/*semctl(sem_idW, p.y*SO_WIDTH + p.x, GETZCNT, &idR);*/
+	struct sembuf writer[2], reader[2];
+	writer[0].sem_num = p.y*SO_WIDTH + p.x;
+	writer[0].sem_op = 0;
+	writer[0].sem_flg = 0;
+	reader[0].sem_num = p.y*SO_WIDTH + p.x;
+	reader[0].sem_op = 0;
+	reader[0].sem_flg = 0;
+	writer[1].sem_num = p.y*SO_WIDTH + p.x;
+	writer[1].sem_op = 1;
+	writer[1].sem_flg = 0;
+	reader[1].sem_num = p.y*SO_WIDTH + p.x;
+	reader[1].sem_op = 1;
+	reader[1].sem_flg = 0;
+	return semop(sem_idW, writer, 1) + semop(sem_idR, reader, 2);
+	
+}
+
+int release (Point p){
+	struct sembuf releaseW, releaseR;
+	releaseW.sem_num = p.y*SO_WIDTH + p.x;
+	releaseW.sem_op = -1;
+	releaseW.sem_flg = IPC_NOWAIT;
+	releaseR.sem_num = p.y*SO_WIDTH + p.x;
+	releaseR.sem_op = -1;
+	releaseR.sem_flg = IPC_NOWAIT;
+	return semop(sem_idW, &releaseW,1) + semop(sem_idR, &releaseR, 1);
 }

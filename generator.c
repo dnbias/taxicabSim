@@ -1,14 +1,14 @@
 #include "generator.h"
 #include "general.h"
 
-int shmid_sources, shmid_map, shmid_ex, qid, sem_idW, sem_idR;;
+int shmid_sources, shmid_map, shmid_ex, qid, sem_idW, sem_idR;
 Point (*sourcesList_ptr)[MAX_SOURCES];
 Cell (*mapptr)[][SO_HEIGHT];
 
 int main(int argc, char **argv) {
   Config conf;
   int i, xArg, yArg, arg, *executing;
-  key_t shmkey, qkey, semkeyW, semkeyR;
+  key_t shmkey, shmkey1, qkey, semkeyW, semkeyR;
   char xArgBuffer[5], yArgBuffer[5], argBuffer1[5], argBuffer2[5],
       argBuffer3[5];
   char *args[6];
@@ -26,18 +26,21 @@ int main(int argc, char **argv) {
   /************ INIT ************/
   logmsg("Initialization", DB);
 if ((shmkey = ftok("makefile", 'a')) < 0) {
-	printf("shmget error\n");
+	printf("ftok error\n");
     EXIT_ON_ERROR
   }
 
   if ((shmid_ex = shmget(shmkey, sizeof(int), IPC_CREAT | 0644)) < 0) {
+  	printf("shmget error\n");
     EXIT_ON_ERROR
   }
 
-  if ((shmkey = ftok("./.gitignore", 'm')) < 0) {
+  if ((shmkey1 = ftok("makefile", 'm')) < 0) {
+  	printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((shmid_map = shmget(shmkey, 0, 0644)) < 0) {
+  if ((shmid_map = shmget(shmkey1, 0, 0644)) < 0) {  /*mi da un errore in questa linea*/
+  	printf("shmget error\n");
     EXIT_ON_ERROR
   }
   if ((void *)(mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
@@ -45,10 +48,11 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
   }
 
   if ((shmkey = ftok("./.gitignore", 's')) < 0) {
+  	printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((shmid_sources =
-           shmget(shmkey, MAX_SOURCES * sizeof(Point), IPC_CREAT | 0666)) < 0) {
+  if ((shmid_sources = shmget(shmkey, MAX_SOURCES * sizeof(Point), IPC_CREAT | 0666)) < 0) {
+  	printf("shmget error\n");
     EXIT_ON_ERROR
   }
   if ((void *)(sourcesList_ptr = shmat(shmid_sources, NULL, 0)) < (void *)0) {
@@ -56,9 +60,11 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
   }
 
   if ((qkey = ftok("./.gitignore", 'q')) < 0) {
+  	printf("ftok error\n");
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
+  	printf("msgget error\n");
     EXIT_ON_ERROR
   }
   
