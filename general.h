@@ -13,6 +13,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/sem.h>
 
 #ifndef DEBUG /* DEBUG by setting when compiling -DDEBUG=1 */
 #define DEBUG 0
@@ -54,5 +55,12 @@ typedef struct {
 } Message;
 
 int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p);
+
+union semun {
+	int val;    
+    struct semid_ds *buf;    
+    unsigned short  *array;  
+    struct seminfo  *__buf;  
+};
 
 #endif /* __GENERAL_H_ */
