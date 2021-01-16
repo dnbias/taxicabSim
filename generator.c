@@ -35,7 +35,7 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
     EXIT_ON_ERROR
   }
 
-  if ((shmkey1 = ftok("makefile", 'm')) < 0) {
+  if ((shmkey1 = ftok("", 'm')) < 0) {
   	printf("ftok error\n");
     EXIT_ON_ERROR
   }
