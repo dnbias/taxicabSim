@@ -11,7 +11,7 @@ int main() {
   int shmid_map;
   key_t shmkey;
   Cell(*mapptr)[][SO_HEIGHT];
-  if ((shmkey = ftok("./.gitignore", 'm')) < 0) {
+  if ((shmkey = ftok("./makefile", 'm')) < 0) {
     EXIT_ON_ERROR
   }
   if ((shmid_map = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),

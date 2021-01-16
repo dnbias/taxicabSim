@@ -8,97 +8,89 @@ Cell (*mapptr)[][SO_HEIGHT];
 int main(int argc, char **argv) {
   Config conf;
   int i, xArg, yArg, arg, *executing;
-  key_t shmkey, shmkey1, qkey, semkeyW, semkeyR;
+  key_t shmkey, qkey, semkeyW, semkeyR;
   char xArgBuffer[5], yArgBuffer[5], argBuffer1[5], argBuffer2[5],
       argBuffer3[5];
   char *args[6];
   char *envp[1];
 
   int col, row;
-  
+
   union semun argR, argW;
   unsigned short semval[SO_WIDTH*SO_HEIGHT];
   int cnt;
   struct semid_ds idR, idW;
   for(cnt=0; cnt<SO_WIDTH*SO_HEIGHT; cnt++)
-  	semval[cnt] = 0;
+        semval[cnt] = 0;
 
   /************ INIT ************/
   logmsg("Initialization", DB);
-if ((shmkey = ftok("makefile", 'a')) < 0) {
-	printf("ftok error\n");
-    EXIT_ON_ERROR
-  }
 
-  if ((shmid_ex = shmget(shmkey, sizeof(int), IPC_CREAT | 0644)) < 0) {
-  	printf("shmget error\n");
-    EXIT_ON_ERROR
-  }
 
-  if ((shmkey1 = ftok("makefile", 'm')) < 0) {
-  	printf("ftok error\n");
+  if ((shmkey = ftok("./makefile", 'm')) < 0) {
+        printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((shmid_map = shmget(shmkey1, 0, 0644)) < 0) {  /*mi da un errore in questa linea*/
-  	printf("shmget error\n");
+  if ((shmid_map = shmget(shmkey, 0, 0666)) < 0) {
+        printf("shmget error\n");
     EXIT_ON_ERROR
   }
   if ((void *)(mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
 
-  if ((shmkey = ftok("./.gitignore", 's')) < 0) {
-  	printf("ftok error\n");
+  if ((shmkey = ftok("./makefile", 'b')) < 0) {
+        printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((shmid_sources = shmget(shmkey, MAX_SOURCES * sizeof(Point), IPC_CREAT | 0666)) < 0) {
-  	printf("shmget error\n");
+  if ((shmid_sources = shmget(shmkey, MAX_SOURCES*sizeof(Point), IPC_CREAT | 0644)) < 0) {
+        printf("shmget error\n");
     EXIT_ON_ERROR
   }
   if ((void *)(sourcesList_ptr = shmat(shmid_sources, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
 
-  if ((qkey = ftok("./.gitignore", 'q')) < 0) {
-  	printf("ftok error\n");
+  if ((qkey = ftok("./makefile", 'q')) < 0) {
+        printf("ftok error\n");
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
-  	printf("msgget error\n");
+        printf("msgget error\n");
     EXIT_ON_ERROR
   }
-  
-  
-  if((semkeyR = ftok("makefile", 'r')) < 0){
-  	printf("ftok error\n");
-  	EXIT_ON_ERROR
+
+
+  if((semkeyR = ftok("./makefile", 'r')) < 0){
+        printf("ftok error\n");
+        EXIT_ON_ERROR
   }
   argR.buf = &idR;
   argR.array = semval;
   if((sem_idR = semget(semkeyR, SO_WIDTH*SO_HEIGHT, IPC_CREAT | 0666)) < 0){
     printf("semget error\n");
-  	EXIT_ON_ERROR
+        EXIT_ON_ERROR
   }
   if(semctl(sem_idR,0,SETALL, argR) < 0){
     printf("semctl error\n");
-  	EXIT_ON_ERROR
+        EXIT_ON_ERROR
   }
-  
-  if((semkeyW = ftok("makefile", 'w')) < 0){
+
+  if((semkeyW = ftok("./makefile", 'w')) < 0){
     printf("ftok error\n");
-  	EXIT_ON_ERROR
+        EXIT_ON_ERROR
   }
   if((sem_idW = semget(semkeyW, SO_WIDTH*SO_HEIGHT, IPC_CREAT | 0666)) < 0){
-  	printf("semget error\n");
-  	EXIT_ON_ERROR
+        printf("semget error\n");
+        EXIT_ON_ERROR
   }
   argW.buf = &idW;
   argW.array = semval;
   if(semctl(sem_idW,0,SETALL, argW) < 0){
-  	printf("semctl error\n");
-  	EXIT_ON_ERROR
+        printf("semctl error\n");
+        EXIT_ON_ERROR
   }
-  
+
   parseConf(&conf);
   if (DEBUG) {
     logmsg("Testing Map:", DB);
@@ -131,7 +123,7 @@ if ((shmkey = ftok("makefile", 'a')) < 0) {
       EXIT_ON_ERROR
     case 0:
       arg = i;
-      snprintf(argBuffer1, 5, "%d", arg);
+      sprintf(argBuffer1, "%d", arg);
       args[0] = "source";
       args[1] = argBuffer1;
       args[2] = NULL;

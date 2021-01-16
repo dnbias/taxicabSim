@@ -19,9 +19,9 @@
 #define DEBUG 0
 #endif
 
-#define SO_WIDTH 50 /* a tempo di compilazione */
-#define SO_HEIGHT 40
-#define MAX_SOURCES (SO_WIDTH * SO_HEIGHT / 3)
+#define SO_WIDTH 10 /* a tempo di compilazione */
+#define SO_HEIGHT 15
+#define MAX_SOURCES SO_WIDTH*SO_HEIGHT
 #define EXIT_ON_ERROR                                                          \
   if (errno) {                                                                 \
     fprintf(stderr, "%d: pid %ld; errno: %d (%s)\n", __LINE__, (long)getpid(), \
@@ -57,10 +57,10 @@ typedef struct {
 int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p);
 
 union semun {
-	int val;    
-    struct semid_ds *buf;    
-    unsigned short  *array;  
-    struct seminfo  *__buf;  
+        int val;
+    struct semid_ds *buf;
+    unsigned short  *array;
+    struct seminfo  *__buf;
 };
 
 #endif /* __GENERAL_H_ */
