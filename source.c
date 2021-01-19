@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
   Message msg;
   struct timespec msgInterval;
   /********** INIT **********/
-  if ((shmkey = ftok("./.gitignore", 'm')) < 0) {
+  if ((shmkey = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
@@ -25,14 +25,14 @@ int main(int argc, char **argv) {
     logmsg("ERROR shmat - mapptr", RUNTIME);
     EXIT_ON_ERROR
   }
-  if ((qkey = ftok("./.gitignore", 'q')) < 0) {
+  if ((qkey = ftok("./makefile", 'q')) < 0) {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, 0644)) < 0) {
     EXIT_ON_ERROR
   }
   signal(SIGINT, SIGINThandler); /* TODO implementare con sigaction() */
-  srand(time(NULL));
+  srand(time(NULL) + getpid());
   sscanf(argv[1], "%d", &msg.type);
 
   msgInterval.tv_sec = 0;
@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
       }
       logmsg("Sending message:", DB);
       if (DEBUG) {
-        printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
+        printf("\tmsg((%d),(%d,%d))\n", msg.type, msg.destination.x,
                msg.destination.y);
       }
       msgsnd(qid, &msg, sizeof(Point), 0);

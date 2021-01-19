@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
   logmsg("Init...", DB);
 
   /************INIT************/
-  if ((shmkey = ftok("./.gitignore", 's')) < 0) {
+  if ((shmkey = ftok("./makefile", 'b')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
-  if ((shmkey = ftok("./.gitignore", 'm')) < 0) {
+  if ((shmkey = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
     logmsg("ERROR shmat - mapptr", RUNTIME);
     EXIT_ON_ERROR
   }
-  if ((qkey = ftok("./.gitignore", 'q')) < 0) {
+  if ((qkey = ftok("./makefile", 'q')) < 0) {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, 0644)) < 0) {
@@ -51,21 +51,21 @@ int main(int argc, char **argv) {
   }
 
 
-  if((semkeyR = ftok("makefile", 'r')) < 0){
-  	printf("ftok error\n");
-  	EXIT_ON_ERROR
+  if((semkeyR = ftok("./makefile", 'r')) < 0){
+        printf("ftok error\n");
+        EXIT_ON_ERROR
   }
   if((sem_idR = semget(semkeyR, 0, 0)) < 0){
-  	printf("semget error\n");
-  	EXIT_ON_ERROR
+        printf("semget error\n");
+        EXIT_ON_ERROR
   }
-  if((semkeyW = ftok("makefile", 'w')) < 0){
+  if((semkeyW = ftok("./makefile", 'w')) < 0){
     printf("ftok error\n");
-  	EXIT_ON_ERROR
+        EXIT_ON_ERROR
   }
   if((sem_idW = semget(semkeyW, 0, 0)) < 0){
     printf("semget error\n");
-  	EXIT_ON_ERROR
+        EXIT_ON_ERROR
   }
 
   signal(SIGINT, SIGINThandler);
@@ -216,13 +216,13 @@ void moveTo(Point dest) { /*pathfinding*/
 
 void incTrafficAt(Point p) {
   /*wait mutex*/
-  if(scrivi(p) < 0){
-  	EXIT_ON_ERROR
-  }
+  /*if(scrivi(p) < 0){
+        EXIT_ON_ERROR
+        }*/
   (*mapptr)[p.x][p.y].traffic++;
-  if(release(p) < 0){
-  	EXIT_ON_ERROR
-  }
+  /*if(release(p) < 0){
+        EXIT_ON_ERROR
+        }*/
   logmsg("Incrementato traffico in", DB);
   if (DEBUG)
     printf("\t(%d,%d)\n", p.x, p.y);
@@ -259,6 +259,7 @@ Point getNearSource(int *source_id) {
 }
 /*FUNZIONI PER CONTROLLARE SEMAFORI*/
 int leggi(Point p){
+<<<<<<< HEAD
 	struct sembuf writer, reader;
 	writer.sem_num = p.y*SO_WIDTH + p.x;
 	writer.sem_op = 0;
@@ -267,27 +268,41 @@ int leggi(Point p){
 	reader.sem_op = 1;
 	reader.sem_flg = 0;
 	return semop(sem_idW, &writer, 1) + semop(sem_idR, &reader, 1);
+=======
+        struct sembuf writer[2], reader;
+        writer[0].sem_num = p.y*SO_WIDTH + p.x;
+        writer[0].sem_op = 0;
+        writer[0].sem_flg = 0;
+        writer[1].sem_num = p.y*SO_WIDTH + p.x;
+        writer[1].sem_op = 1;
+        writer[1].sem_flg = 0;
+        reader.sem_num = p.y*SO_WIDTH + p.x;
+        reader.sem_op = 1;
+        reader.sem_flg = 0;
+        return semop(sem_idW, writer, 2) + semop(sem_idR, &reader, 1);
+>>>>>>> 813e74841e13eb14d425c766da242d2497887cc2
 }
 
 int scrivi(Point p){
-	/*semctl(sem_idW, p.y*SO_WIDTH + p.x, GETZCNT, &idR);*/
-	struct sembuf writer[2], reader[2];
-	writer[0].sem_num = p.y*SO_WIDTH + p.x;
-	writer[0].sem_op = 0;
-	writer[0].sem_flg = 0;
-	reader[0].sem_num = p.y*SO_WIDTH + p.x;
-	reader[0].sem_op = 0;
-	reader[0].sem_flg = 0;
-	writer[1].sem_num = p.y*SO_WIDTH + p.x;
-	writer[1].sem_op = 1;
-	writer[1].sem_flg = 0;
-	reader[1].sem_num = p.y*SO_WIDTH + p.x;
-	reader[1].sem_op = 1;
-	reader[1].sem_flg = 0;
-	return semop(sem_idW, writer, 1) + semop(sem_idR, reader, 2);
-	
+        /*semctl(sem_idW, p.y*SO_WIDTH + p.x, GETZCNT, &idR);*/
+        struct sembuf writer[2], reader[2];
+        writer[0].sem_num = p.y*SO_WIDTH + p.x;
+        writer[0].sem_op = 0;
+        writer[0].sem_flg = 0;
+        reader[0].sem_num = p.y*SO_WIDTH + p.x;
+        reader[0].sem_op = 0;
+        reader[0].sem_flg = 0;
+        writer[1].sem_num = p.y*SO_WIDTH + p.x;
+        writer[1].sem_op = 1;
+        writer[1].sem_flg = 0;
+        reader[1].sem_num = p.y*SO_WIDTH + p.x;
+        reader[1].sem_op = 1;
+        reader[1].sem_flg = 0;
+        return semop(sem_idW, writer, 1) + semop(sem_idR, reader, 2);
+
 }
 
+<<<<<<< HEAD
 int releaseW (Point p){
 	struct sembuf releaseW, releaseR;
 	releaseW.sem_num = p.y*SO_WIDTH + p.x;
@@ -297,6 +312,17 @@ int releaseW (Point p){
 	releaseR.sem_op = -1;
 	releaseR.sem_flg = IPC_NOWAIT;
 	return semop(sem_idW, &releaseW,1) + semop(sem_idR, &releaseR, 1);
+=======
+int release (Point p){
+        struct sembuf releaseW, releaseR;
+        releaseW.sem_num = p.y*SO_WIDTH + p.x;
+        releaseW.sem_op = -1;
+        releaseW.sem_flg = IPC_NOWAIT;
+        releaseR.sem_num = p.y*SO_WIDTH + p.x;
+        releaseR.sem_op = -1;
+        releaseR.sem_flg = IPC_NOWAIT;
+        return semop(sem_idW, &releaseW,1) + semop(sem_idR, &releaseR, 1);
+>>>>>>> 813e74841e13eb14d425c766da242d2497887cc2
 }
 
 int releaseR (Point p){
@@ -305,4 +331,15 @@ int releaseR (Point p){
 	releaseR.sem_op = -1;
 	releaseR.sem_flg = IPC_NOWAIT;
 	return semop(sem_idR, &releaseR, 1);
+}
+
+int releaseW (Point p){
+	struct sembuf releaseR, releaseW;
+	releaseR.sem_num = p.y*SO_WIDTH + p.x;
+	releaseR.sem_op = -1;
+	releaseR.sem_flg = IPC_NOWAIT;
+	releaseW.sem_num = p.y*SO_WIDTH + p.x;
+	releaseW.sem_op = -1;
+	releaseW.sem_flg = IPC_NOWAIT;
+	return semop(sem_idR, &releaseR, 1) + release(sem_idw, &releaseW; 1);
 }
