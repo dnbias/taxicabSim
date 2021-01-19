@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((shmid = shmget(shmkey, 0, 0644)) < 0) {
+  if ((shmid = shmget(shmkey, 0, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
   if (shmid < 0) {
@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   if ((qkey = ftok("./makefile", 'q')) < 0) {
     EXIT_ON_ERROR
   }
-  if ((qid = msgget(qkey, 0644)) < 0) {
+  if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
   signal(SIGINT, SIGINThandler); /* TODO implementare con sigaction() */

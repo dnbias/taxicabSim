@@ -14,4 +14,16 @@ void moveTo(Point);
 
 Point getNearSource();
 
+typedef struct {
+  int distance;
+  int maxDistanceInTrip;
+  int clients;
+  int tripsSuccess;
+} taxiData;
+
+typedef struct {
+  long type;
+  taxiData data;
+} dataMessage;
+
 #endif /*__TAXI_H_*/
