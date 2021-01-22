@@ -1,5 +1,7 @@
 #include "generator.h"
 #include "general.h"
+#include <signal.h>
+#include <unistd.h>
 
 int shmid_sources, shmid_map, shmid_ex, qid, sem_idW, sem_idR;
 Point (*sourcesList_ptr)[MAX_SOURCES];
@@ -11,28 +13,27 @@ int main(int argc, char **argv) {
   key_t shmkey, qkey, semkeyW, semkeyR;
   char xArgBuffer[5], yArgBuffer[5], argBuffer1[5], argBuffer2[5],
       argBuffer3[5];
-  char *args[6];
+  char *args[7];
   char *envp[1];
 
   int col, row;
 
   union semun argR, argW;
-  unsigned short semval[SO_WIDTH*SO_HEIGHT];
+  unsigned short semval[SO_WIDTH * SO_HEIGHT];
   int cnt;
   struct semid_ds idR, idW;
-  for(cnt=0; cnt<SO_WIDTH*SO_HEIGHT; cnt++)
-        semval[cnt] = 0;
+  for (cnt = 0; cnt < SO_WIDTH * SO_HEIGHT; cnt++)
+    semval[cnt] = 0;
 
   /************ INIT ************/
   logmsg("Initialization", DB);
 
-
   if ((shmkey = ftok("./makefile", 'm')) < 0) {
-        printf("ftok error\n");
+    printf("ftok error\n");
     EXIT_ON_ERROR
   }
   if ((shmid_map = shmget(shmkey, 0, 0666)) < 0) {
-        printf("shmget error\n");
+    printf("shmget error\n");
     EXIT_ON_ERROR
   }
   if ((void *)(mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
@@ -40,11 +41,12 @@ int main(int argc, char **argv) {
   }
 
   if ((shmkey = ftok("./makefile", 'b')) < 0) {
-        printf("ftok error\n");
+    printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((shmid_sources = shmget(shmkey, MAX_SOURCES*sizeof(Point), IPC_CREAT | 0644)) < 0) {
-        printf("shmget error\n");
+  if ((shmid_sources =
+           shmget(shmkey, MAX_SOURCES * sizeof(Point), IPC_CREAT | 0644)) < 0) {
+    printf("shmget error\n");
     EXIT_ON_ERROR
   }
   if ((void *)(sourcesList_ptr = shmat(shmid_sources, NULL, 0)) < (void *)0) {
@@ -52,43 +54,42 @@ int main(int argc, char **argv) {
   }
 
   if ((qkey = ftok("./makefile", 'q')) < 0) {
-        printf("ftok error\n");
+    printf("ftok error\n");
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
-        printf("msgget error\n");
+    printf("msgget error\n");
     EXIT_ON_ERROR
   }
 
-
-  if((semkeyR = ftok("./makefile", 'r')) < 0){
-        printf("ftok error\n");
-        EXIT_ON_ERROR
+  if ((semkeyR = ftok("./makefile", 'r')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
   }
   argR.buf = &idR;
   argR.array = semval;
-  if((sem_idR = semget(semkeyR, SO_WIDTH*SO_HEIGHT, IPC_CREAT | 0666)) < 0){
+  if ((sem_idR = semget(semkeyR, SO_WIDTH * SO_HEIGHT, IPC_CREAT | 0666)) < 0) {
     printf("semget error\n");
-        EXIT_ON_ERROR
+    EXIT_ON_ERROR
   }
-  if(semctl(sem_idR,0,SETALL, argR) < 0){
+  if (semctl(sem_idR, 0, SETALL, argR) < 0) {
     printf("semctl error\n");
-        EXIT_ON_ERROR
+    EXIT_ON_ERROR
   }
 
-  if((semkeyW = ftok("./makefile", 'w')) < 0){
+  if ((semkeyW = ftok("./makefile", 'w')) < 0) {
     printf("ftok error\n");
-        EXIT_ON_ERROR
+    EXIT_ON_ERROR
   }
-  if((sem_idW = semget(semkeyW, SO_WIDTH*SO_HEIGHT, IPC_CREAT | 0666)) < 0){
-        printf("semget error\n");
-        EXIT_ON_ERROR
+  if ((sem_idW = semget(semkeyW, SO_WIDTH * SO_HEIGHT, IPC_CREAT | 0666)) < 0) {
+    printf("semget error\n");
+    EXIT_ON_ERROR
   }
   argW.buf = &idW;
   argW.array = semval;
-  if(semctl(sem_idW,0,SETALL, argW) < 0){
-        printf("semctl error\n");
-        EXIT_ON_ERROR
+  if (semctl(sem_idW, 0, SETALL, argW) < 0) {
+    printf("semctl error\n");
+    EXIT_ON_ERROR
   }
 
   parseConf(&conf);
@@ -107,7 +108,10 @@ int main(int argc, char **argv) {
   generateMap(mapptr, &conf);
   signal(SIGINT, SIGINThandler);
   signal(SIGALRM, ALARMhandler);
+  signal(SIGUSR1, SIGUSR1handler);
   logmsg("Init complete", DB);
+
+  srand(time(NULL) + getpid());
   /************ END-INIT ************/
 
   logmsg("Printing map...", DB);
@@ -138,12 +142,12 @@ int main(int argc, char **argv) {
   for (i = 0; i < conf.SO_TAXI; i++) {
     if (DEBUG) {
       printf("\tTaxi n. %d created\n", i);
-      sleep(1);
     }
     switch (fork()) {
     case -1:
       EXIT_ON_ERROR
     case 0:
+      srand(time(NULL) ^ (getpid() << 16));
       xArg = (rand() % SO_WIDTH);
       yArg = (rand() % SO_HEIGHT);
       snprintf(xArgBuffer, 5, "%d", xArg);
@@ -164,10 +168,16 @@ int main(int argc, char **argv) {
       EXIT_ON_ERROR
     }
   }
-  logmsg("Starting Timer now", DB);
+  logmsg("Starting Timer now.", DB);
   alarm(conf.SO_DURATION);
-  logmsg("Waiting for Children.", DB);
+  if (kill(0, SIGUSR1) < 0) {
+    EXIT_ON_ERROR
+  }
+  logmsg("Waiting for Children...", DB);
   while (wait(NULL) > 0) {
+  }
+  if (kill(getppid(), SIGUSR2) < 0) {
+    EXIT_ON_ERROR
   }
   exit(0);
 }
@@ -243,7 +253,6 @@ int checkNoAdiacentHoles(Cell (*matrix)[][SO_HEIGHT], int x, int y) {
 void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
   int x, y, r, i;
   time_t startTime;
-  srand(time(NULL));
   for (x = 0; x < SO_WIDTH; x++) {
     for (y = 0; y < SO_HEIGHT; y++) {
       (*matrix)[x][y].state = FREE;
@@ -348,3 +357,5 @@ void ALARMhandler(int sig) { /* TODO Rendere signal-safe */
   printf("=============== Received ALARM ===============\n");
   kill(0, SIGINT);
 }
+
+void SIGUSR1handler(int sig) {}

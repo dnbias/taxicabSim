@@ -77,6 +77,7 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
+  signal(SIGUSR1, SIGUSR1handler);
   signal(SIGINT, SIGINThandler);
   sscanf(argv[1], "%d", &position.x);
   sscanf(argv[2], "%d", &position.y);
@@ -93,7 +94,6 @@ int main(int argc, char **argv) {
   /************END-INIT************/
 
   incTrafficAt(position);
-
   while (1) {
     logmsg("Going to Nearest Source", DB);
     moveTo(getNearSource(&source_id));
@@ -245,9 +245,8 @@ void incTrafficAt(Point p) {
   /*if(release(p) < 0){
         EXIT_ON_ERROR
         }*/
-  logmsg("Incrementato traffico in", DB);
   if (DEBUG)
-    printf("\t(%d,%d)\n", p.x, p.y);
+    printf("[taxi-%ld]->(%d,%d)\n", getpid(), p.x, p.y);
   /*signal mutex*/
 }
 
@@ -265,6 +264,8 @@ void SIGINThandler(int sig) {
   logmsg("Graceful exit successful", DB);
   exit(0);
 }
+
+void SIGUSR1handler(int sig) { return; }
 
 Point getNearSource(int *source_id) {
   Point s;

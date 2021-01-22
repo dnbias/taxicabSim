@@ -6,6 +6,8 @@
 
 void SIGINThandler(int);
 
+void SIGUSR1handler(int);
+
 void logmsg(char *, enum Level);
 
 void incTrafficAt(Point);

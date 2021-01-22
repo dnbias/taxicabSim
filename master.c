@@ -1,9 +1,10 @@
 #include "general.h"
 #include "generator.h"
 #include <sys/ipc.h>
+#include <sys/msg.h>
 #include <unistd.h>
 Cell (*mapptr)[][SO_HEIGHT];
-
+int executing = 1;
 typedef struct {
   int distance;
   int clients;
@@ -34,7 +35,7 @@ void printMap(Cell (*map)[][SO_HEIGHT]) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
       case FREE:
-        printf("%d", (*map)[x][y].traffic);
+        printf("[%d]", (*map)[x][y].traffic);
         break;
       case SOURCE:
         printf("[S]");
@@ -51,6 +52,9 @@ void ALARMhandler(int sig) {
   printMap(mapptr);
   alarm(1);
 }
+void SIGUSR1handler(int sig) {}
+
+void SIGUSR2handler(int sig) { executing = 0; }
 
 void logmsg(char *message, enum Level l) {
   if (l <= DEBUG) {
@@ -79,14 +83,14 @@ void printReport() {
   printf("Statistiche:\n");
   printf("\tViaggi:\n");
   printf("\t\tEseguiti con successo\tInevasi\tAbortiti\n");
-  printf("\t\t%d\t%d\t%d\n", simData.tripsSuccess, simData.tripsNotServed,
-         (simData.trips - simData.tripsSuccess));
+  printf("\t\t%d                   \t%d     \t%d\n", simData.tripsSuccess,
+         simData.tripsNotServed, (simData.trips - simData.tripsSuccess));
   printf("\tTaxi:\n");
   printf("\t\tMaggior Strada\tViaggio piu' lungo\tMaggior numero di viaggi\n");
-  printf("\t\t%ld\t%ld\t%ld\n", simData.distanceWinner, simData.timeWinner,
-         simData.tripsWinner);
-  printf("\t\t%d\t%ld\t%d\n", simData.maxDistance, simData.maxTime,
-         simData.maxTrips);
+  printf("\t\t%ld           \t%ld               \t%ld\n",
+         simData.distanceWinner, simData.timeWinner, simData.tripsWinner);
+  printf("\t\t%d            \t%ld               \t%d\n", simData.maxDistance,
+         simData.maxTime, simData.maxTrips);
 }
 
 int main() {
@@ -97,6 +101,7 @@ int main() {
   key_t shmkey, qkey;
   dataMessage msg;
   taxiData dataBuffer;
+  struct msqid_ds q_ds;
 
   if ((shmkey = ftok("./makefile", 'm')) < 0) {
     EXIT_ON_ERROR
@@ -116,6 +121,9 @@ int main() {
     EXIT_ON_ERROR
   }
   signal(SIGALRM, ALARMhandler);
+  signal(SIGUSR1, SIGUSR1handler);
+  signal(SIGUSR2, SIGUSR2handler);
+
   if (DEBUG) {
     logmsg("Testing Map", DB);
     (*mapptr)[10][1].state = FREE;
@@ -138,13 +146,18 @@ int main() {
     envp[0] = NULL;
     execve("generator", args, envp);
   }
-  alarm(1);
+  while (executing) {
+  }
   while (wait(NULL) > 0) {
-    if (msgrcv(qid, &dataBuffer, sizeof(msg.data), 0, 0) == -1) {
+  }
+  msgctl(qid, IPC_STAT, &q_ds);
+  while (q_ds.msg_qnum > 0) {
+    if (msgrcv(qid, &dataBuffer, sizeof(msg.data), 0, IPC_NOWAIT) == -1) {
       perror("msgrcv");
-      exit(1);
+      EXIT_ON_ERROR
     }
     updateData(msg.type, &dataBuffer);
+    msgctl(qid, IPC_STAT, &q_ds);
   }
   printReport();
 

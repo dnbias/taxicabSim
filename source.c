@@ -6,7 +6,7 @@ int qid;
 int main(int argc, char **argv) {
   int shmid;
   key_t shmkey, qkey;
-  int found;
+  int found = 0;
   Message msg;
   struct timespec msgInterval;
   /********** INIT **********/
@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((shmid = shmget(shmkey, 0, IPC_CREAT | 0644)) < 0) {
+  if ((shmid = shmget(shmkey, 0, 0644)) < 0) {
     EXIT_ON_ERROR
   }
   if (shmid < 0) {
@@ -32,22 +32,27 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
   signal(SIGINT, SIGINThandler); /* TODO implementare con sigaction() */
-  srand(time(NULL) + getpid());
+  signal(SIGUSR1, SIGUSR1handler);
+
+  srand(time(NULL) ^ (getpid() << 16));
   sscanf(argv[1], "%d", &msg.type);
 
   msgInterval.tv_sec = 0;
   msgInterval.tv_nsec = 200000000;
   /********** END-INIT **********/
-
+  pause();
   logmsg("Going into execution cycle", DB);
   if (DEBUG)
     while (1) {
       nanosleep(&msgInterval, NULL);
-      while (!found) {
+      while (found != 1) {
         msg.destination.x = (rand() % SO_WIDTH);
         msg.destination.y = (rand() % SO_HEIGHT);
-        if (isFree(mapptr, msg.destination)) {
-          found = 1;
+        if (msg.destination.x > 0 && msg.destination.x < SO_WIDTH &&
+            msg.destination.y > 0 && msg.destination.y < SO_HEIGHT) {
+          if (isFree(mapptr, msg.destination)) {
+            found = 1;
+          }
         }
       }
       logmsg("Sending message:", DB);
@@ -67,6 +72,8 @@ void logmsg(char *message, enum Level l) {
     printf("[source-%d] %s\n", pid, message);
   }
 }
+
+void SIGUSR1handler(int sig) {}
 
 void SIGINThandler(int sig) { /* TODO implement signal-safety */
   logmsg("Finishing up", DB);

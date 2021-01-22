@@ -16,4 +16,6 @@ void logmsg(char *, enum Level);
 void SIGINThandler(int);
 
 void ALARMhandler(int);
+
+void SIGUSR1handler(int);
 #endif /* __GENERATOR_H_ */
