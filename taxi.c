@@ -304,14 +304,11 @@ int scrivi(Point p){
 
 <<<<<<< HEAD
 int releaseW (Point p){
-	struct sembuf releaseW, releaseR;
+	struct sembuf releaseW;
 	releaseW.sem_num = p.y*SO_WIDTH + p.x;
 	releaseW.sem_op = -1;
 	releaseW.sem_flg = IPC_NOWAIT;
-	releaseR.sem_num = p.y*SO_WIDTH + p.x;
-	releaseR.sem_op = -1;
-	releaseR.sem_flg = IPC_NOWAIT;
-	return semop(sem_idW, &releaseW,1) + semop(sem_idR, &releaseR, 1);
+	return semop(sem_idW, &releaseW,1);
 =======
 int release (Point p){
         struct sembuf releaseW, releaseR;
