@@ -15,18 +15,25 @@ int main(int argc, char **argv) {
       argBuffer3[5];
   char *args[7];
   char *envp[1];
-
   int col, row;
-
   union semun argR, argW;
   unsigned short semval[SO_WIDTH * SO_HEIGHT];
   int cnt;
+  struct sigaction act;
   struct semid_ds idR, idW;
+
   for (cnt = 0; cnt < SO_WIDTH * SO_HEIGHT; cnt++)
     semval[cnt] = 0;
 
   /************ INIT ************/
-  logmsg("Initialization", DB);
+
+  memset(&act, 0, sizeof(act));
+  act.sa_handler = handler;
+
+  sigaction(SIGINT, &act, 0);
+  sigaction(SIGALRM, &act, 0);
+  sigaction(SIGUSR1, &act, 0);
+  sigaction(SIGUSR2, &act, 0);
 
   if ((shmkey = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
@@ -44,8 +51,8 @@ int main(int argc, char **argv) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((shmid_sources =
-           shmget(shmkey, MAX_SOURCES * sizeof(Point), IPC_CREAT | 0644)) < 0) {
+  if ((shmid_sources = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Point),
+                              IPC_CREAT | 0644)) < 0) {
     printf("shmget error\n");
     EXIT_ON_ERROR
   }
@@ -106,9 +113,7 @@ int main(int argc, char **argv) {
 
   logmsg("Generate map...", DB);
   generateMap(mapptr, &conf);
-  signal(SIGINT, SIGINThandler);
-  signal(SIGALRM, ALARMhandler);
-  signal(SIGUSR1, SIGUSR1handler);
+
   logmsg("Init complete", DB);
 
   srand(time(NULL) + getpid());
@@ -176,10 +181,7 @@ int main(int argc, char **argv) {
   logmsg("Waiting for Children...", DB);
   while (wait(NULL) > 0) {
   }
-  if (kill(getppid(), SIGUSR2) < 0) {
-    EXIT_ON_ERROR
-  }
-  exit(0);
+  kill(0, SIGINT);
 }
 
 /*
@@ -287,7 +289,7 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
       logmsg("It seems you selected too many sources to fit the map:/n/tRetry "
              "with less. Quitting...",
              RUNTIME);
-      exit(0);
+      kill(0, SIGINT);
     }
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
@@ -333,29 +335,42 @@ void logmsg(char *message, enum Level l) {
   }
 }
 
-/*  Signal Handlers  */
-void SIGINThandler(int sig) { /* TODO Rendere signal-safe */
-  printf("=============== Received SIGINT ==============\n");
-  while (wait(NULL) > 0) {
+void handler(int sig) {
+  switch (sig) {
+  case SIGINT:
+    printf("=============== Received SIGINT ==============\n");
+    shmdt(mapptr);
+    shmdt(sourcesList_ptr);
+    if (shmctl(shmid_sources, IPC_RMID, NULL)) {
+      printf("\nError in shmctl: sources,\n");
+      EXIT_ON_ERROR
+    }
+    if (semctl(sem_idW, 0, IPC_RMID)) {
+      printf("\nError in shmctl: sources,\n");
+      EXIT_ON_ERROR
+    }
+    if (semctl(sem_idR, 0, IPC_RMID)) {
+      printf("\nError in shmctl: sources,\n");
+      EXIT_ON_ERROR
+    }
+    if (msgctl(qid, IPC_RMID, NULL)) {
+      printf("\nError in msgctl,\n");
+      EXIT_ON_ERROR
+    }
+    logmsg("Graceful exit successful", DB);
+    if (kill(0, SIGUSR2) < 0) {
+      EXIT_ON_ERROR
+    }
+    exit(0);
+    break;
+  case SIGALRM:
+    if (kill(0, SIGINT) < 0) {
+      EXIT_ON_ERROR
+    }
+    break;
+  case SIGUSR1:
+    break;
+  case SIGUSR2:
+    break;
   }
-  shmdt(mapptr);
-  shmdt(sourcesList_ptr);
-  if (shmctl(shmid_sources, IPC_RMID, NULL)) {
-    printf("\nError in shmctl: sources,\n");
-    EXIT_ON_ERROR
-  }
-  if (msgctl(qid, IPC_RMID, NULL)) {
-    printf("\nError in msgctl,\n");
-    EXIT_ON_ERROR
-  }
-  logmsg("Graceful exit successful", DB);
-  exit(0);
 }
-
-void ALARMhandler(int sig) { /* TODO Rendere signal-safe */
-  signal(SIGINT, SIGINThandler);
-  printf("=============== Received ALARM ===============\n");
-  kill(0, SIGINT);
-}
-
-void SIGUSR1handler(int sig) {}

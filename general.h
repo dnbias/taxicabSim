@@ -19,14 +19,14 @@
 #define DEBUG 0
 #endif
 
-#define SO_WIDTH 15 /* a tempo di compilazione */
-#define SO_HEIGHT 3
+#define SO_WIDTH 10 /* a tempo di compilazione */
+#define SO_HEIGHT 5
 #define MAX_SOURCES SO_WIDTH *SO_HEIGHT
 #define EXIT_ON_ERROR                                                          \
   if (errno) {                                                                 \
     fprintf(stderr, "%d: pid %ld; errno: %d (%s)\n", __LINE__, (long)getpid(), \
             errno, strerror(errno));                                           \
-    exit(EXIT_FAILURE);                                                        \
+    kill(0, SIGINT);                                                           \
   }
 
 enum type { FREE, SOURCE, HOLE };

@@ -9,7 +9,17 @@ int main(int argc, char **argv) {
   int found = 0;
   Message msg;
   struct timespec msgInterval;
+  struct sigaction act;
+
   /********** INIT **********/
+  memset(&act, 0, sizeof(act));
+  act.sa_handler = handler;
+
+  sigaction(SIGINT, &act, 0);
+  sigaction(SIGALRM, &act, 0);
+  sigaction(SIGUSR1, &act, 0);
+  sigaction(SIGUSR2, &act, 0);
+
   if ((shmkey = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -31,16 +41,13 @@ int main(int argc, char **argv) {
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
-  signal(SIGINT, SIGINThandler); /* TODO implementare con sigaction() */
-  signal(SIGUSR1, SIGUSR1handler);
 
   srand(time(NULL) ^ (getpid() << 16));
   sscanf(argv[1], "%d", &msg.type);
-
   msgInterval.tv_sec = 0;
   msgInterval.tv_nsec = 200000000;
   /********** END-INIT **********/
-  pause();
+
   logmsg("Going into execution cycle", DB);
   if (DEBUG)
     while (1) {
@@ -73,11 +80,14 @@ void logmsg(char *message, enum Level l) {
   }
 }
 
-void SIGUSR1handler(int sig) {}
-
-void SIGINThandler(int sig) { /* TODO implement signal-safety */
-  logmsg("Finishing up", DB);
-  shmdt(mapptr);
-  logmsg("Graceful exit successful", DB);
-  exit(0);
+void handler(int sig) {
+  switch (sig) {
+  case SIGINT:
+    logmsg("Finishing up", DB);
+    shmdt(mapptr);
+    logmsg("Graceful exit successful", DB);
+    exit(0);
+  case SIGUSR1:
+    break;
+  }
 }

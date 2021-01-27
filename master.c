@@ -5,7 +5,7 @@
 #include <time.h>
 #include <unistd.h>
 Cell (*mapptr)[][SO_HEIGHT];
-int executing = 1;
+volatile int executing = 1;
 typedef struct {
   int distance;
   int clients;
@@ -47,15 +47,23 @@ void printMap(Cell (*map)[][SO_HEIGHT]) {
     }
     printf("\n");
   }
+  printf("\n");
 }
-
-void ALARMhandler(int sig) {
-  printMap(mapptr);
-  alarm(1);
+void handler(int sig) {
+  switch (sig) {
+  case SIGINT:
+    break;
+  case SIGALRM:
+    printMap(mapptr);
+    alarm(1);
+    break;
+  case SIGUSR1:
+    break;
+  case SIGUSR2:
+    executing = 0;
+    break;
+  }
 }
-void SIGUSR1handler(int sig) {}
-
-void SIGUSR2handler(int sig) { executing = 0; }
 
 void logmsg(char *message, enum Level l) {
   if (l <= DEBUG) {
@@ -103,6 +111,15 @@ int main() {
   dataMessage msg;
   taxiData dataBuffer;
   struct msqid_ds q_ds;
+  struct sigaction act;
+
+  memset(&act, 0, sizeof(act));
+  act.sa_handler = handler;
+
+  sigaction(SIGINT, &act, 0);
+  sigaction(SIGALRM, &act, 0);
+  sigaction(SIGUSR1, &act, 0);
+  sigaction(SIGUSR2, &act, 0);
 
   if ((shmkey = ftok("./makefile", 'm')) < 0) {
     EXIT_ON_ERROR
@@ -121,9 +138,6 @@ int main() {
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
-  signal(SIGALRM, ALARMhandler);
-  signal(SIGUSR1, SIGUSR1handler);
-  signal(SIGUSR2, SIGUSR2handler);
 
   if (DEBUG) {
     logmsg("Testing Map", DB);
@@ -148,6 +162,7 @@ int main() {
     execve("generator", args, envp);
   }
 
+  pause();
   t = time(NULL);
   while (executing) {
     if ((time(NULL) - t) >= 1) {

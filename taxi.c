@@ -12,9 +12,18 @@ int main(int argc, char **argv) {
   key_t shmkey, qkey, semkeyR, semkeyW;
   Message msg;
   const struct timespec nsecs[] = {0, 500000000L};
-  logmsg("Init...", DB);
+  struct sigaction act;
 
   /************INIT************/
+  logmsg("Init...", DB);
+  memset(&act, 0, sizeof(act));
+  act.sa_handler = handler;
+
+  sigaction(SIGINT, &act, 0);
+  sigaction(SIGALRM, &act, 0);
+  sigaction(SIGUSR1, &act, 0);
+  sigaction(SIGUSR2, &act, 0);
+
   if ((shmkey = ftok("./makefile", 'b')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -77,8 +86,6 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
-  signal(SIGUSR1, SIGUSR1handler);
-  signal(SIGINT, SIGINThandler);
   sscanf(argv[1], "%d", &position.x);
   sscanf(argv[2], "%d", &position.y);
   sscanf(argv[3], "%d", &timensec_min);
@@ -110,7 +117,9 @@ void moveTo(Point dest) { /*pathfinding*/
   long t1, t2;
   struct timespec transit;
   Point temp;
-  logmsg("Moving to", DB);
+  logmsg("Moving to destination:", DB);
+  if (DEBUG)
+    printf("[taxi-%ld]--->(%d,%d)\n", getpid(), dest.x, dest.y);
   oldDistance = data_msg.data.distance;
   while (position.x != dest.x || position.y != dest.y) {
     dirX = dest.x - position.x;
@@ -118,12 +127,19 @@ void moveTo(Point dest) { /*pathfinding*/
     temp.x = position.x;
     temp.y = position.y;
     found = 0;
-    if (dirX > 0 && dirY > 0) {
+    if ((abs(dirX) <= 1 && dirY == 0) || (dirX == 0 && abs(dirY) <= 1)) {
+      incTrafficAt(temp);
+      decTrafficAt(position);
+      position.x = dest.x;
+      position.y = dest.y;
+      found = 1;
+    } else if (dirX >= 0 && dirY >= 0) {
       temp.x++;
       for (i = 0; i < 3 && !found; i++) {
         switch (isFree(mapptr, temp)) {
         case 1:
           incTrafficAt(temp);
+          decTrafficAt(position);
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
@@ -138,17 +154,17 @@ void moveTo(Point dest) { /*pathfinding*/
             temp.y = temp.y - 2;
             break;
           case 2:
-            logmsg("ERROR: Stuck", DB);
-            exit(1);
+            break;
           }
         }
       }
-    } else if (dirX > 0 && dirY < 0) {
+    } else if (dirX >= 0 && dirY <= 0) {
       temp.x++;
       for (i = 0; i < 3 && !found; i++) {
         switch (isFree(mapptr, temp)) {
         case 1:
           incTrafficAt(temp);
+          decTrafficAt(position);
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
@@ -163,17 +179,17 @@ void moveTo(Point dest) { /*pathfinding*/
             temp.y = temp.y + 2;
             break;
           case 2:
-            logmsg("ERROR: Stuck", RUNTIME);
-            exit(1);
+            break;
           }
         }
       }
-    } else if (dirX < 0 && dirY > 0) {
+    } else if (dirX <= 0 && dirY >= 0) {
       temp.x--;
       for (i = 0; i < 3 && !found; i++) {
         switch (isFree(mapptr, temp)) {
         case 1:
           incTrafficAt(temp);
+          decTrafficAt(position);
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
@@ -188,17 +204,18 @@ void moveTo(Point dest) { /*pathfinding*/
             temp.y = temp.y - 2;
             break;
           case 2:
-            logmsg("ERROR: Stuck", RUNTIME);
-            exit(1);
+            break;
           }
         }
       }
-    } else if (dirX < 0 && dirY < 0) {
+    } else if (dirX <= 0 && dirY <= 0) {
       temp.x--;
       for (i = 0; i < 3 && !found; i++) {
         switch (isFree(mapptr, temp)) {
         case 1:
           incTrafficAt(temp);
+          decTrafficAt(position);
+
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
@@ -213,12 +230,14 @@ void moveTo(Point dest) { /*pathfinding*/
             temp.y = temp.y + 2;
             break;
           case 2:
-            logmsg("ERROR: Stuck", RUNTIME);
-            exit(1);
+            break;
           }
         }
       }
     } /*END-else-ifs*/
+    logmsg("looping to", DB);
+    if (DEBUG)
+      printf("[taxi-%ld]--->(%d,%d)\n", getpid(), dest.x, dest.y);
 
     t1 = (long)(rand() % (timensec_max - timensec_min)) + timensec_min;
     if (t1 > 999999999L) {
@@ -234,6 +253,9 @@ void moveTo(Point dest) { /*pathfinding*/
       data_msg.data.maxDistanceInTrip) {
     data_msg.data.maxDistanceInTrip = data_msg.data.distance - oldDistance;
   }
+  logmsg("Arrived in", DB);
+  if (DEBUG)
+    printf("[taxi-%ld]--->(%d,%d)\n", getpid(), dest.x, dest.y);
 }
 
 void incTrafficAt(Point p) {
@@ -250,22 +272,13 @@ void incTrafficAt(Point p) {
   /*signal mutex*/
 }
 
+void decTrafficAt(Point p) { (*mapptr)[p.x][p.y].traffic--; }
+
 void logmsg(char *message, enum Level l) {
   if (l <= DEBUG) {
     printf("[taxi-%d] %s\n", getpid(), message);
   }
 }
-
-void SIGINThandler(int sig) {
-  logmsg("Finishing up", DB);
-  shmdt(mapptr);
-  shmdt(sourcesList_ptr);
-  msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
-  logmsg("Graceful exit successful", DB);
-  exit(0);
-}
-
-void SIGUSR1handler(int sig) { return; }
 
 Point getNearSource(int *source_id) {
   Point s;
@@ -340,4 +353,18 @@ int releaseR(Point p) {
   releaseR.sem_op = -1;
   releaseR.sem_flg = IPC_NOWAIT;
   return semop(sem_idR, &releaseR, 1);
+}
+
+void handler(int sig) {
+  switch (sig) {
+  case SIGINT:
+    logmsg("Finishing up", DB);
+    shmdt(mapptr);
+    shmdt(sourcesList_ptr);
+    msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
+    logmsg("Graceful exit successful", DB);
+    exit(0);
+  case SIGUSR1:
+    break;
+  }
 }

@@ -13,9 +13,6 @@ void printMap(Cell (*)[][SO_HEIGHT]);
 
 void logmsg(char *, enum Level);
 
-void SIGINThandler(int);
+void handler(int);
 
-void ALARMhandler(int);
-
-void SIGUSR1handler(int);
 #endif /* __GENERATOR_H_ */
