@@ -2,6 +2,7 @@
 #include "generator.h"
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <time.h>
 #include <unistd.h>
 Cell (*mapptr)[][SO_HEIGHT];
 int executing = 1;
@@ -97,7 +98,7 @@ int main() {
   char *args[2];
   char *envp[1];
   char id_buffer[30];
-  int shmid_map, qid;
+  int shmid_map, qid, t;
   key_t shmkey, qkey;
   dataMessage msg;
   taxiData dataBuffer;
@@ -146,7 +147,13 @@ int main() {
     envp[0] = NULL;
     execve("generator", args, envp);
   }
+
+  t = time(NULL);
   while (executing) {
+    if ((time(NULL) - t) >= 1) {
+      printMap(mapptr);
+      t = time(NULL);
+    }
   }
   while (wait(NULL) > 0) {
   }
