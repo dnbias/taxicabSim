@@ -3,6 +3,8 @@
 #include "general.h"
 void SIGINThandler(int);
 
+void SIGUSR1handler(int);
+
 void logmsg(char *, enum Level);
 
 #endif
