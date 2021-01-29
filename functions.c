@@ -37,7 +37,6 @@ int leggi(Point p, int sem_idR, int sem_idW) {
 }
 
 int scrivi(Point p, int sem_idR, int sem_idW) {
-  /*semctl(sem_idW, p.y*SO_WIDTH + p.x, GETZCNT, &idR);*/
   struct sembuf writer[2], reader;
   writer[0].sem_num = p.y * SO_WIDTH + p.x;
   writer[0].sem_op = 0;
@@ -65,4 +64,12 @@ int releaseR(Point p, int sem_idR) {
   releaseR.sem_op = -1;
   releaseR.sem_flg = IPC_NOWAIT;
   return semop(sem_idR, &releaseR, 1);
+}
+
+int isInit(int sem_idM){
+  struct sembuf waitfor;
+  waitfor.sem_num = 0;
+  waitfor.sem_op = 0;
+  waitfor.sem_flg = 0;
+  return semop(sem_idM, &waitfor, 1);
 }

@@ -5,8 +5,8 @@ int qid, sem_idW, sem_idR;
 
 int main(int argc, char **argv) {
 
-  int shmid, sem_idR, sem_idW;
-  key_t shmkey, qkey, semkeyW, semkeyR;
+  int shmid, sem_idR, sem_idW, sem_idM;
+  key_t shmkey, qkey, semkeyW, semkeyR, semkeyM;
 
   int found = 0;
   Message msg;
@@ -76,12 +76,23 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
+
+  if ((semkeyM = ftok("./makefile", 'm')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((sem_idM = semget(semkeyM, 0, 0)) < 0) {
+    printf("semget error\n");
+    EXIT_ON_ERROR
+  }
   srand(time(NULL) ^ (getpid() << 16));
   sscanf(argv[1], "%ld", &msg.type);
   msgInterval.tv_sec = 0;
   msgInterval.tv_nsec = 200000000;
   /********** END-INIT **********/
-
+  if(isInit(sem_idM)){
+    EXIT_ON_ERROR
+  }
   logmsg("Going into execution cycle", DB);
   if (DEBUG)
     while (1) {

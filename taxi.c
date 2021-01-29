@@ -1,5 +1,5 @@
 #include "taxi.h"
-int shmid, source_id, master_qid, sem_idR, sem_idW;
+int shmid, source_id, master_qid, sem_idR, sem_idW, sem_idM;
 Cell (*mapptr)[][SO_HEIGHT];
 Point (*sourcesList_ptr)[MAX_SOURCES];
 Point position;
@@ -9,7 +9,7 @@ dataMessage data_msg;
 
 int main(int argc, char **argv) {
 
-  key_t shmkey, qkey, semkeyR, semkeyW;
+  key_t shmkey, qkey, semkeyR, semkeyW, semkeyM;
   Message msg;
   const struct timespec nsecs[] = {0, 500000000L};
   struct sigaction act;
@@ -86,6 +86,15 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
+  if ((semkeyM = ftok("./makefile", 'm')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((sem_idM = semget(semkeyM, 0, 0)) < 0) {
+    printf("semget error\n");
+    EXIT_ON_ERROR
+  }
+
   sscanf(argv[1], "%d", &position.x);
   sscanf(argv[2], "%d", &position.y);
   sscanf(argv[3], "%d", &timensec_min);
@@ -99,6 +108,9 @@ int main(int argc, char **argv) {
   data_msg.data.clients = 0;
   data_msg.data.tripsSuccess = 0;
   /************END-INIT************/
+  if(isInit(sem_idM)){
+    EXIT_ON_ERROR
+  }
 
   incTrafficAt(position);
   while (1) {

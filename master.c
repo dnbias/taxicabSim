@@ -106,12 +106,13 @@ int main() {
   char *args[2];
   char *envp[1];
   char id_buffer[30];
-  int shmid_map, qid, t;
-  key_t shmkey, qkey;
+  int shmid_map, qid, t, sem_idM;
+  key_t shmkey, qkey, semkeyM;
   dataMessage msg;
   taxiData dataBuffer;
   struct msqid_ds q_ds;
   struct sigaction act;
+  union semun argM;
 
   memset(&act, 0, sizeof(act));
   act.sa_handler = handler;
@@ -136,6 +137,20 @@ int main() {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
+  
+  argM.val = 1;
+  if ((semkeyM = ftok("./makefile", 'm')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((sem_idM = semget(semkeyM, 1, IPC_CREAT | 0666)) < 0) {
+    printf("semget error\n");
+    EXIT_ON_ERROR
+  }
+  if (semctl(sem_idM, 0, SETVAL, argM) < 0) {
+    printf("semctl error\n");
     EXIT_ON_ERROR
   }
 

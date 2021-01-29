@@ -3,14 +3,14 @@
 #include <signal.h>
 #include <unistd.h>
 
-int shmid_sources, shmid_map, shmid_ex, qid, sem_idW, sem_idR;
+int shmid_sources, shmid_map, shmid_ex, qid, sem_idW, sem_idR, sem_idM;
 Point (*sourcesList_ptr)[MAX_SOURCES];
 Cell (*mapptr)[][SO_HEIGHT];
 
 int main(int argc, char **argv) {
   Config conf;
   int i, xArg, yArg, arg, *executing;
-  key_t shmkey, qkey, semkeyW, semkeyR;
+  key_t shmkey, qkey, semkeyW, semkeyR, semkeyM;
   char xArgBuffer[5], yArgBuffer[5], argBuffer1[5], argBuffer2[5],
       argBuffer3[5];
   char *args[7];
@@ -98,6 +98,15 @@ int main(int argc, char **argv) {
     printf("semctl error\n");
     EXIT_ON_ERROR
   }
+  
+  if ((semkeyM = ftok("./makefile", 'm')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((sem_idM = semget(semkeyM, 0, 0)) < 0) {
+    printf("semget error\n");
+    EXIT_ON_ERROR
+  }
 
   parseConf(&conf);
   if (DEBUG) {
@@ -173,6 +182,9 @@ int main(int argc, char **argv) {
       EXIT_ON_ERROR
     }
   }
+  if(allInit()){
+  	EXIT_ON_ERROR
+  }
   logmsg("Starting Timer now.", DB);
   alarm(conf.SO_DURATION);
   if (kill(0, SIGUSR1) < 0) {
@@ -188,6 +200,15 @@ int main(int argc, char **argv) {
  * Parses the file taxicab.conf in the source directory and populates the Config
  * struct
  */
+ 
+int allInit(){
+	struct sembuf init;
+	init.sem_num = 0;
+	init.sem_op = -1;
+	init.sem_flg = 0;
+	return semop(sem_idM, &init, 1);
+}
+
 void parseConf(Config *conf) {
   FILE *in;
   char s[16], c;
