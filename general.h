@@ -54,14 +54,14 @@ typedef struct {
   Point destination;
 } Message;
 
-int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p);
-
 union semun {
   int val;
   struct semid_ds *buf;
   unsigned short *array;
   struct seminfo *__buf;
 };
+
+int isFree(Cell (*map)[SO_WIDTH][SO_HEIGHT], Point p);
 
 int scrivi(Point p);
 

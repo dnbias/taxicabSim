@@ -4,8 +4,8 @@ Cell (*mapptr)[][SO_HEIGHT];
 int qid;
 
 int main(int argc, char **argv) {
-  int shmid;
-  key_t shmkey, qkey;
+  int shmid, sem_idR, sem_idW;
+  key_t shmkey, qkey, semkeyW, semkeyR;
   int found = 0;
   Message msg;
   struct timespec msgInterval;
@@ -37,6 +37,23 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
+
+  if ((semkeyR = ftok("./makefile", 'r')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((sem_idR = semget(semkeyR, 0, 0)) < 0) {
+    printf("semget error\n");
+    EXIT_ON_ERROR
+  }
+  if ((semkeyW = ftok("./makefile", 'w')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((sem_idW = semget(semkeyW, 0, 0)) < 0) {
+    printf("semget error\n");
     EXIT_ON_ERROR
   }
 

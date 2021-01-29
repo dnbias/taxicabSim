@@ -260,13 +260,13 @@ void moveTo(Point dest) { /*pathfinding*/
 
 void incTrafficAt(Point p) {
   /*wait mutex*/
-  if(scrivi(p) < 0){
-        EXIT_ON_ERROR
-        }
+  if (scrivi(p) < 0) {
+    EXIT_ON_ERROR
+  }
   (*mapptr)[p.x][p.y].traffic++;
-  if(release(p) < 0){
-        EXIT_ON_ERROR
-        }
+  if (releaseW(p) < 0) {
+    EXIT_ON_ERROR
+  }
   if (DEBUG)
     printf("[taxi-%ld]->(%d,%d)\n", getpid(), p.x, p.y);
   /*signal mutex*/
