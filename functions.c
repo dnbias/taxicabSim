@@ -4,7 +4,7 @@
 int isFree(Cell (*map)[][SO_HEIGHT], Point p, int sem_idW, int sem_idR) {
   int r;
 
-  if(leggi(p, sem_idW, sem_idR)){
+  if(leggi(p, sem_idR, sem_idW)){
   	    printf("error leggi \n");
         EXIT_ON_ERROR;
   }
@@ -48,7 +48,7 @@ int scrivi(Point p, int sem_idR, int sem_idW) {
   writer[1].sem_num = p.y * SO_WIDTH + p.x;
   writer[1].sem_op = 1;
   writer[1].sem_flg = 0;
-  return semop(sem_idW, writer, 1) + semop(sem_idR, &reader, 2);
+  return semop(sem_idW, writer, 2) + semop(sem_idR, &reader, 1);
 }
 
 int releaseW(Point p, int sem_idW) {
