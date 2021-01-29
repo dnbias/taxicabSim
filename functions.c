@@ -3,6 +3,7 @@
 /* Checks whether the Point is Free */
 int isFree(Cell (*map)[][SO_HEIGHT], Point p, int sem_idW, int sem_idR) {
   int r;
+
   if(leggi(p, sem_idW, sem_idR)){
   	    printf("error leggi \n");
         EXIT_ON_ERROR;

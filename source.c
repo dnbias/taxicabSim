@@ -4,8 +4,10 @@ Cell (*mapptr)[][SO_HEIGHT];
 int qid, sem_idW, sem_idR;
 
 int main(int argc, char **argv) {
-  int shmid;
-  key_t shmkey, qkey, semkeyR, semkeyW;
+
+  int shmid, sem_idR, sem_idW;
+  key_t shmkey, qkey, semkeyW, semkeyR;
+
   int found = 0;
   Message msg;
   struct timespec msgInterval;
@@ -56,6 +58,23 @@ int main(int argc, char **argv) {
     printf("semget error\n");
     EXIT_ON_ERROR
    }
+
+  if ((semkeyR = ftok("./makefile", 'r')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((sem_idR = semget(semkeyR, 0, 0)) < 0) {
+    printf("semget error\n");
+    EXIT_ON_ERROR
+  }
+  if ((semkeyW = ftok("./makefile", 'w')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((sem_idW = semget(semkeyW, 0, 0)) < 0) {
+    printf("semget error\n");
+    EXIT_ON_ERROR
+  }
 
   srand(time(NULL) ^ (getpid() << 16));
   sscanf(argv[1], "%ld", &msg.type);
