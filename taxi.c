@@ -119,7 +119,7 @@ void moveTo(Point dest) { /*pathfinding*/
   Point temp;
   logmsg("Moving to destination:", DB);
   if (DEBUG)
-    printf("[taxi-%ld]--->(%d,%d)\n", getpid(), dest.x, dest.y);
+    printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
   oldDistance = data_msg.data.distance;
   while (position.x != dest.x || position.y != dest.y) {
     dirX = dest.x - position.x;
@@ -136,7 +136,7 @@ void moveTo(Point dest) { /*pathfinding*/
     } else if (dirX >= 0 && dirY >= 0) {
       temp.x++;
       for (i = 0; i < 3 && !found; i++) {
-        switch (isFree(mapptr, temp)) {
+        switch (isFree(mapptr, temp, sem_idR, sem_idW)) {
         case 1:
           incTrafficAt(temp);
           decTrafficAt(position);
@@ -161,7 +161,7 @@ void moveTo(Point dest) { /*pathfinding*/
     } else if (dirX >= 0 && dirY <= 0) {
       temp.x++;
       for (i = 0; i < 3 && !found; i++) {
-        switch (isFree(mapptr, temp)) {
+        switch (isFree(mapptr, temp,  sem_idR, sem_idW)) {
         case 1:
           incTrafficAt(temp);
           decTrafficAt(position);
@@ -186,7 +186,7 @@ void moveTo(Point dest) { /*pathfinding*/
     } else if (dirX <= 0 && dirY >= 0) {
       temp.x--;
       for (i = 0; i < 3 && !found; i++) {
-        switch (isFree(mapptr, temp)) {
+        switch (isFree(mapptr, temp, sem_idR, sem_idW)) {
         case 1:
           incTrafficAt(temp);
           decTrafficAt(position);
@@ -211,7 +211,7 @@ void moveTo(Point dest) { /*pathfinding*/
     } else if (dirX <= 0 && dirY <= 0) {
       temp.x--;
       for (i = 0; i < 3 && !found; i++) {
-        switch (isFree(mapptr, temp)) {
+        switch (isFree(mapptr, temp, sem_idR, sem_idW)) {
         case 1:
           incTrafficAt(temp);
           decTrafficAt(position);
@@ -237,7 +237,7 @@ void moveTo(Point dest) { /*pathfinding*/
     } /*END-else-ifs*/
     logmsg("looping to", DB);
     if (DEBUG)
-      printf("[taxi-%ld]--->(%d,%d)\n", getpid(), dest.x, dest.y);
+      printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
 
     t1 = (long)(rand() % (timensec_max - timensec_min)) + timensec_min;
     if (t1 > 999999999L) {
@@ -255,24 +255,32 @@ void moveTo(Point dest) { /*pathfinding*/
   }
   logmsg("Arrived in", DB);
   if (DEBUG)
-    printf("[taxi-%ld]--->(%d,%d)\n", getpid(), dest.x, dest.y);
+    printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
 }
 
 void incTrafficAt(Point p) {
   /*wait mutex*/
-  if(scrivi(p) < 0){
+  if(scrivi(p, sem_idR, sem_idW) < 0){
         EXIT_ON_ERROR
         }
   (*mapptr)[p.x][p.y].traffic++;
-  if(release(p) < 0){
+  if(releaseW(p, sem_idW) < 0){
         EXIT_ON_ERROR
         }
   if (DEBUG)
-    printf("[taxi-%ld]->(%d,%d)\n", getpid(), p.x, p.y);
+    printf("[taxi-%d]->(%d,%d)\n", getpid(), p.x, p.y);
   /*signal mutex*/
 }
 
-void decTrafficAt(Point p) { (*mapptr)[p.x][p.y].traffic--; }
+void decTrafficAt(Point p) {
+		if(scrivi(p, sem_idR, sem_idW) < 0){
+        	EXIT_ON_ERROR
+        }
+		(*mapptr)[p.x][p.y].traffic--;
+		if(releaseW(p, sem_idW) < 0){
+        	EXIT_ON_ERROR
+        }
+}
 
 void logmsg(char *message, enum Level l) {
   if (l <= DEBUG) {
@@ -295,51 +303,6 @@ Point getNearSource(int *source_id) {
   return s;
 }
 /*FUNZIONI PER CONTROLLARE SEMAFORI*/
-
-int leggi(Point p) {
-  struct sembuf writer[2], reader;
-  writer[0].sem_num = p.y * SO_WIDTH + p.x;
-  writer[0].sem_op = 0;
-  writer[0].sem_flg = 0;
-  writer[1].sem_num = p.y * SO_WIDTH + p.x;
-  writer[1].sem_op = 1;
-  writer[1].sem_flg = 0;
-  reader.sem_num = p.y * SO_WIDTH + p.x;
-  reader.sem_op = 1;
-  reader.sem_flg = 0;
-  return semop(sem_idW, writer, 2) + semop(sem_idR, &reader, 1);
-}
-
-int scrivi(Point p) {
-  /*semctl(sem_idW, p.y*SO_WIDTH + p.x, GETZCNT, &idR);*/
-  struct sembuf writer[2], reader;
-  writer[0].sem_num = p.y * SO_WIDTH + p.x;
-  writer[0].sem_op = 0;
-  writer[0].sem_flg = 0;
-  reader.sem_num = p.y * SO_WIDTH + p.x;
-  reader.sem_op = 0;
-  reader.sem_flg = 0;
-  writer[1].sem_num = p.y * SO_WIDTH + p.x;
-  writer[1].sem_op = 1;
-  writer[1].sem_flg = 0;
-  return semop(sem_idW, writer, 1) + semop(sem_idR, &reader, 2);
-}
-
-int releaseW(Point p) {
-  struct sembuf releaseW;
-  releaseW.sem_num = p.y * SO_WIDTH + p.x;
-  releaseW.sem_op = -1;
-  releaseW.sem_flg = IPC_NOWAIT;
-  return semop(sem_idW, &releaseW, 1);
-}
-
-int releaseR(Point p) {
-  struct sembuf releaseR;
-  releaseR.sem_num = p.y * SO_WIDTH + p.x;
-  releaseR.sem_op = -1;
-  releaseR.sem_flg = IPC_NOWAIT;
-  return semop(sem_idR, &releaseR, 1);
-}
 
 void handler(int sig) {
   switch (sig) {
