@@ -63,4 +63,12 @@ union semun {
   struct seminfo *__buf;
 };
 
+int scrivi(Point p);
+
+int leggi(Point p);
+
+int releaseW(Point p);
+
+int releaseR(Point p);
+
 #endif /* __GENERAL_H_ */

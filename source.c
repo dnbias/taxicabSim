@@ -25,12 +25,10 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
   if ((shmid = shmget(shmkey, 0, 0644)) < 0) {
-    EXIT_ON_ERROR
-  }
-  if (shmid < 0) {
     printf("shmget error\n");
     EXIT_ON_ERROR
   }
+
   if ((void *)(mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
     logmsg("ERROR shmat - mapptr", RUNTIME);
     EXIT_ON_ERROR
@@ -43,7 +41,7 @@ int main(int argc, char **argv) {
   }
 
   srand(time(NULL) ^ (getpid() << 16));
-  sscanf(argv[1], "%d", &msg.type);
+  sscanf(argv[1], "%ld", &msg.type);
   msgInterval.tv_sec = 0;
   msgInterval.tv_nsec = 200000000;
   /********** END-INIT **********/
@@ -64,7 +62,7 @@ int main(int argc, char **argv) {
       }
       logmsg("Sending message:", DB);
       if (DEBUG) {
-        printf("\tmsg((%d),(%d,%d))\n", msg.type, msg.destination.x,
+        printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
                msg.destination.y);
       }
       msgsnd(qid, &msg, sizeof(Point), 0);
