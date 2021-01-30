@@ -13,6 +13,8 @@ void printMap(Cell (*)[][SO_HEIGHT]);
 
 void logmsg(char *, enum Level);
 
+void execTaxi();
+
 void handler(int);
 
 #endif /* __GENERATOR_H_ */

@@ -1,33 +1,7 @@
-#include "general.h"
-#include "generator.h"
-#include <sys/ipc.h>
-#include <sys/msg.h>
-#include <time.h>
-#include <unistd.h>
+#include "master.h"
+
 Cell (*mapptr)[][SO_HEIGHT];
 volatile int executing = 1;
-typedef struct {
-  int distance;
-  int clients;
-  int tripsSuccess;
-  long maxTimeForTrip;
-} taxiData;
-typedef struct {
-  long type;
-  taxiData data;
-} dataMessage;
-
-typedef struct {
-  int trips;
-  int tripsSuccess;
-  int tripsNotServed;
-  int maxTrips;
-  long tripsWinner;
-  long maxTime;
-  long timeWinner;
-  int maxDistance;
-  long distanceWinner;
-} Data;
 Data simData;
 
 void printMap(Cell (*map)[][SO_HEIGHT]) {
@@ -73,13 +47,17 @@ void logmsg(char *message, enum Level l) {
 void updateData(long pid, taxiData *data) {
   simData.trips = simData.trips + (*data).clients;
   simData.tripsSuccess = simData.tripsSuccess + (*data).tripsSuccess;
+
   if (simData.maxTrips < (*data).clients) {
     simData.maxTrips = (*data).clients;
     simData.tripsWinner = pid;
   }
-  if (simData.maxTime < (*data).maxTimeForTrip) {
-    simData.maxTime = (*data).maxTimeForTrip;
-    simData.timeWinner = pid;
+  if (simData.maxTime.tv_sec <= (*data).maxTimeInTrip.tv_sec) {
+    if (simData.maxTime.tv_usec < (*data).maxTimeInTrip.tv_usec) {
+      simData.maxTime.tv_sec = (*data).maxTimeInTrip.tv_sec;
+      simData.maxTime.tv_usec = (*data).maxTimeInTrip.tv_usec;
+      simData.timeWinner = pid;
+    }
   }
   if (simData.maxDistance < (*data).distance) {
     simData.maxDistance = (*data).distance;
@@ -106,9 +84,10 @@ int main() {
   char *args[2];
   char *envp[1];
   char id_buffer[30];
-  int shmid_map, qid, t, sem_idM;
+  int shmid_map, qid, source_qid, t, sem_idM , buffer;
   key_t shmkey, qkey, semkeyM;
   dataMessage msg;
+  sourceMessage msg_source;
   taxiData dataBuffer;
   struct msqid_ds q_ds;
   struct sigaction act;
@@ -132,14 +111,21 @@ int main() {
   if ((void *)(mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
     EXIT_ON_ERROR
   }
-  /*  queue for comunication with other modules */
+  /*  queues for comunication with other modules */
+  if ((qkey = ftok("./makefile", 's')) < 0) {
+    EXIT_ON_ERROR
+  }
+  if ((source_qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
+
   if ((qkey = ftok("./makefile", 'd')) < 0) {
     EXIT_ON_ERROR
   }
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
-  
+
   argM.val = 1;
   if ((semkeyM = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
@@ -187,7 +173,15 @@ int main() {
   }
   while (wait(NULL) > 0) {
   }
-  msgctl(qid, IPC_STAT, &q_ds);
+  msgctl(source_qid, IPC_STAT, &q_ds);
+  while (q_ds.msg_qnum > 0) {
+    if (msgrcv(source_qid, &buffer, sizeof(int), 0, IPC_NOWAIT) == -1) {
+      perror("msgrcv");
+      EXIT_ON_ERROR
+    }
+    simData.requests += buffer;
+    msgctl(source_qid, IPC_STAT, &q_ds);
+  }
   while (q_ds.msg_qnum > 0) {
     if (msgrcv(qid, &dataBuffer, sizeof(msg.data), 0, IPC_NOWAIT) == -1) {
       perror("msgrcv");
@@ -196,6 +190,7 @@ int main() {
     updateData(msg.type, &dataBuffer);
     msgctl(qid, IPC_STAT, &q_ds);
   }
+  simData.tripsNotServed = simData.requests - simData.trips;
   printReport();
 
   if (shmctl(shmid_map, IPC_RMID, NULL)) {

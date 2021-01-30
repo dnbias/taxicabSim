@@ -6,9 +6,10 @@ Point position;
 int qid, timensec_min, timensec_max, timeout;
 taxiData data;
 dataMessage data_msg;
+struct timeval timer;
 
 int main(int argc, char **argv) {
-
+  int received;
   key_t shmkey, qkey, semkeyR, semkeyW, semkeyM;
   Message msg;
   const struct timespec nsecs[] = {0, 500000000L};
@@ -105,18 +106,28 @@ int main(int argc, char **argv) {
   data_msg.type = getpid();
   data_msg.data.distance = 0;
   data_msg.data.maxDistanceInTrip = 0;
+  data_msg.data.maxTimeInTrip.tv_sec = 0;
+  data_msg.data.maxTimeInTrip.tv_usec = 0;
   data_msg.data.clients = 0;
   data_msg.data.tripsSuccess = 0;
+  data_msg.data.abort = 0;
   /************END-INIT************/
   if(isInit(sem_idM)){
     EXIT_ON_ERROR
   }
-
+  gettimeofday(&timer, NULL);
   incTrafficAt(position);
   while (1) {
     logmsg("Going to Nearest Source", DB);
     moveTo(getNearSource(&source_id));
-    msgrcv(qid, &msg, sizeof(Point), source_id, 0);
+    received = 0;
+    while(!received){
+      if(msgrcv(qid, &msg, sizeof(Point), source_id, 0) == -1){
+        checkTimeout();
+      } else {
+        received = 1;
+      }
+    }
     data_msg.data.clients++;
     logmsg("Going to destination", DB);
     moveTo(msg.destination);
@@ -128,12 +139,15 @@ void moveTo(Point dest) { /*pathfinding*/
   int dirX, dirY, i, found, oldDistance;
   long t1, t2;
   struct timespec transit;
+  struct timeval start, end;
   Point temp;
   logmsg("Moving to destination:", DB);
   if (DEBUG)
     printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
   oldDistance = data_msg.data.distance;
+  gettimeofday(&start, NULL);
   while (position.x != dest.x || position.y != dest.y){
+    checkTimeout();
     t2 = 0;
 
     if (DEBUG)
@@ -153,6 +167,7 @@ void moveTo(Point dest) { /*pathfinding*/
     } else if (dirX >= 0 && dirY >= 0) {
       temp.x++;
       for (i = 0; i < 3 && !found; i++) {
+        checkTimeout();
         switch (isFree(mapptr, temp, sem_idR, sem_idW)) {
         case 1:
           incTrafficAt(temp);
@@ -171,6 +186,7 @@ void moveTo(Point dest) { /*pathfinding*/
             temp.y = temp.y - 2;
             break;
           case 2:
+            temp.x--;
             break;
           }
         }
@@ -178,6 +194,7 @@ void moveTo(Point dest) { /*pathfinding*/
     } else if (dirX >= 0 && dirY <= 0) {
       temp.x++;
       for (i = 0; i < 3 && !found; i++) {
+        checkTimeout();
         switch (isFree(mapptr, temp,  sem_idR, sem_idW)) {
         case 1:
           incTrafficAt(temp);
@@ -196,6 +213,7 @@ void moveTo(Point dest) { /*pathfinding*/
             temp.y = temp.y + 2;
             break;
           case 2:
+            temp.x--;
             break;
           }
         }
@@ -203,6 +221,7 @@ void moveTo(Point dest) { /*pathfinding*/
     } else if (dirX <= 0 && dirY >= 0) {
       temp.x--;
       for (i = 0; i < 3 && !found; i++) {
+        checkTimeout();
         switch (isFree(mapptr, temp, sem_idR, sem_idW)) {
         case 1:
           incTrafficAt(temp);
@@ -221,6 +240,7 @@ void moveTo(Point dest) { /*pathfinding*/
             temp.y = temp.y - 2;
             break;
           case 2:
+            temp.x++;
             break;
           }
         }
@@ -228,6 +248,7 @@ void moveTo(Point dest) { /*pathfinding*/
     } else if (dirX <= 0 && dirY <= 0) {
       temp.x--;
       for (i = 0; i < 3 && !found; i++) {
+        checkTimeout();
         switch (isFree(mapptr, temp, sem_idR, sem_idW)) {
         case 1:
           incTrafficAt(temp);
@@ -246,65 +267,60 @@ void moveTo(Point dest) { /*pathfinding*/
             temp.y = temp.y + 2;
             break;
           case 2:
+            temp.x++;
             break;
           }
         }
       }
     } /*END-else-ifs*/
-    logmsg("looping to", DB);
-    if (DEBUG)
-      printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
 
     t1 = (long)(rand() % (timensec_max - timensec_min)) + timensec_min;
-
-    if (DEBUG)
-      printf("[taxi-%d] transit time between %ld - %ld nsec;\n\tgenerated: %ld\n",
-             getpid(),timensec_max , timensec_min, t1);
-
     if (t1 > 999999999L) {
       t2 = floor(t1 / 1000000000L);
       t1 = t1 - 1000000000L * t2;
     }
     transit.tv_sec = t2;
     transit.tv_nsec = t1;
-    if (DEBUG)
-      printf("[taxi-%d] moving for %ld sec %ld nsec\n",
-             getpid(), t2, t1);
     nanosleep(&transit, NULL);
     data_msg.data.distance++;
+    gettimeofday(&timer, NULL);
   } /*END-while*/
+  gettimeofday(&end, NULL);
+  data_msg.data.maxTimeInTrip.tv_sec =
+    (end.tv_sec - start.tv_sec);
+  data_msg.data.maxTimeInTrip.tv_usec =
+    (end.tv_usec - start.tv_usec);
   if ((data_msg.data.distance - oldDistance) >
       data_msg.data.maxDistanceInTrip) {
-    data_msg.data.maxDistanceInTrip = data_msg.data.distance -
-                                      oldDistance;
+    data_msg.data.maxDistanceInTrip =
+      data_msg.data.distance - oldDistance;
   }
   logmsg("Arrived in", DB);
   if (DEBUG)
-    printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
+    printf("[taxi-%d]--->(%d,%d)\n",
+           getpid(), dest.x, dest.y);
 }
 
 void incTrafficAt(Point p) {
-  /*wait mutex*/
   if(scrivi(p, sem_idR, sem_idW) < 0){
-        EXIT_ON_ERROR
-        }
+    EXIT_ON_ERROR
+  }
   (*mapptr)[p.x][p.y].traffic++;
   if(releaseW(p, sem_idW) < 0){
-        EXIT_ON_ERROR
-        }
+    EXIT_ON_ERROR
+  }
   if (DEBUG)
     printf("[taxi-%d]->(%d,%d)\n", getpid(), p.x, p.y);
-  /*signal mutex*/
 }
 
 void decTrafficAt(Point p) {
-                if(scrivi(p, sem_idR, sem_idW) < 0){
-                EXIT_ON_ERROR
-        }
-                (*mapptr)[p.x][p.y].traffic--;
-                if(releaseW(p, sem_idW) < 0){
-                EXIT_ON_ERROR
-        }
+  if(scrivi(p, sem_idR, sem_idW) < 0){
+    EXIT_ON_ERROR
+  }
+  (*mapptr)[p.x][p.y].traffic--;
+  if(releaseW(p, sem_idW) < 0){
+    EXIT_ON_ERROR
+  }
 }
 
 void logmsg(char *message, enum Level l) {
@@ -327,7 +343,18 @@ Point getNearSource(int *source_id) {
   }
   return s;
 }
-/*FUNZIONI PER CONTROLLARE SEMAFORI*/
+
+
+void checkTimeout(){
+  struct timeval elapsed;
+  int s, u, n;
+  gettimeofday(&elapsed, NULL);
+  s = elapsed.tv_sec - timer.tv_sec;
+  u = elapsed.tv_usec - timer.tv_usec;
+  n = s*10^10 + u/1000;
+  if(n >= timeout)
+    raise(SIGQUIT);
+}
 
 void handler(int sig) {
   switch (sig) {
@@ -338,6 +365,10 @@ void handler(int sig) {
     msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
     logmsg("Graceful exit successful", DB);
     exit(0);
+  case SIGQUIT:
+    kill(getppid(), SIGQUIT);
+    data_msg.data.abort++;
+    raise(SIGINT);
   case SIGUSR1:
     break;
   }

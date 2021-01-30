@@ -5,13 +5,13 @@ int isFree(Cell (*map)[][SO_HEIGHT], Point p, int sem_idW, int sem_idR) {
   int r;
 
   if(leggi(p, sem_idR, sem_idW)){
-  	    printf("error leggi \n");
+    printf("error leggi \n"); /*ERRORE:  27 (File too large)*/
         EXIT_ON_ERROR;
   }
   if ((*map)[p.x][p.y].state != HOLE &&
       (*map)[p.x][p.y].traffic < (*map)[p.x][p.y].capacity) {
       if(releaseR(p, sem_idR)){
-       			printf("releaseR \n");
+                        printf("releaseR \n");
                 EXIT_ON_ERROR;
                 }
     if (DEBUG)

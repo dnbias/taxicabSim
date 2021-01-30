@@ -6,4 +6,9 @@ void handler(int);
 
 void logmsg(char *, enum Level);
 
+typedef struct {
+  long type;
+  int requests;
+} MasterMessage;
+
 #endif

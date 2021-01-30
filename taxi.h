@@ -16,11 +16,15 @@ void moveTo(Point);
 
 Point getNearSource();
 
+void checkTimeout();
+
 typedef struct {
   int distance;
   int maxDistanceInTrip;
+  struct timeval maxTimeInTrip;
   int clients;
   int tripsSuccess;
+  int abort;
 } taxiData;
 
 typedef struct {

@@ -1,7 +1,7 @@
 #include "source.h"
-
+MasterMessage msg_master;
 Cell (*mapptr)[][SO_HEIGHT];
-int qid, sem_idW, sem_idR;
+int qid, master_qid, sem_idW, sem_idR;
 
 int main(int argc, char **argv) {
 
@@ -41,7 +41,15 @@ int main(int argc, char **argv) {
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
-  
+
+   /*  queue for comunication with master */
+  if ((qkey = ftok("./makefile", 's')) < 0) {
+    EXIT_ON_ERROR
+  }
+  if ((master_qid = msgget(qkey, 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
+
   if ((semkeyR = ftok("./makefile", 'r')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -89,6 +97,8 @@ int main(int argc, char **argv) {
   sscanf(argv[1], "%ld", &msg.type);
   msgInterval.tv_sec = 0;
   msgInterval.tv_nsec = 200000000;
+  msg_master.type = 1;
+  msg_master.requests = 0;
   /********** END-INIT **********/
   if(isInit(sem_idM)){
     EXIT_ON_ERROR
@@ -113,6 +123,7 @@ int main(int argc, char **argv) {
                msg.destination.y);
       }
       msgsnd(qid, &msg, sizeof(Point), 0);
+      msg_master.requests++;
       found = 0;
     }
 }
@@ -130,6 +141,7 @@ void handler(int sig) {
   case SIGINT:
     logmsg("Finishing up", DB);
     shmdt(mapptr);
+    msgsnd(master_qid, &msg_master, sizeof(int), 0);
     logmsg("Graceful exit successful", DB);
     exit(0);
   case SIGUSR1:

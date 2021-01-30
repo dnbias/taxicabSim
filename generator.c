@@ -2,13 +2,12 @@
 #include "general.h"
 #include <signal.h>
 #include <unistd.h>
-
+Config conf;
 int shmid_sources, shmid_map, shmid_ex, qid, sem_idW, sem_idR, sem_idM;
 Point (*sourcesList_ptr)[MAX_SOURCES];
 Cell (*mapptr)[][SO_HEIGHT];
 
 int main(int argc, char **argv) {
-  Config conf;
   int i, xArg, yArg, arg, *executing;
   key_t shmkey, qkey, semkeyW, semkeyR, semkeyM;
   char xArgBuffer[5], yArgBuffer[5], argBuffer1[5], argBuffer2[5],
@@ -34,7 +33,7 @@ int main(int argc, char **argv) {
   sigaction(SIGALRM, &act, 0);
   sigaction(SIGUSR1, &act, 0);
   sigaction(SIGUSR2, &act, 0);
-
+  sigaction(SIGQUIT, &act, 0);
   if ((shmkey = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -98,7 +97,7 @@ int main(int argc, char **argv) {
     printf("semctl error\n");
     EXIT_ON_ERROR
   }
-  
+
   if ((semkeyM = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -153,7 +152,7 @@ int main(int argc, char **argv) {
   }
 
   logmsg("Forking Taxis...", DB);
-  for (i = 0; i < conf.SO_TAXI; i++) {
+  for (i = 1; i < conf.SO_TAXI + 1; i++) {
     if (DEBUG) {
       printf("\tTaxi n. %d created\n", i);
     }
@@ -161,29 +160,11 @@ int main(int argc, char **argv) {
     case -1:
       EXIT_ON_ERROR
     case 0:
-      srand(time(NULL) ^ (getpid() << 16));
-      xArg = (rand() % SO_WIDTH);
-      yArg = (rand() % SO_HEIGHT);
-      snprintf(xArgBuffer, 5, "%d", xArg);
-      snprintf(yArgBuffer, 5, "%d", yArg);
-      snprintf(argBuffer1, 5, "%d", conf.SO_TIMENSEC_MIN);
-      snprintf(argBuffer2, 5, "%d", conf.SO_TIMENSEC_MAX);
-      snprintf(argBuffer3, 5, "%d", conf.SO_TIMEOUT);
-      args[0] = "taxi";
-      args[1] = xArgBuffer;
-      args[2] = yArgBuffer;
-      args[3] = argBuffer1;
-      args[4] = argBuffer2;
-      args[5] = argBuffer3;
-      args[6] = NULL;
-      envp[0] = NULL;
-      execve( "taxi", args, envp);
-      /* here execve failed */
-      EXIT_ON_ERROR
+      execTaxi();
     }
   }
   if(allInit()){
-  	EXIT_ON_ERROR
+        EXIT_ON_ERROR
   }
   logmsg("Starting Timer now.", DB);
   alarm(conf.SO_DURATION);
@@ -200,13 +181,13 @@ int main(int argc, char **argv) {
  * Parses the file taxicab.conf in the source directory and populates the Config
  * struct
  */
- 
+
 int allInit(){
-	struct sembuf init;
-	init.sem_num = 0;
-	init.sem_op = -1;
-	init.sem_flg = 0;
-	return semop(sem_idM, &init, 1);
+        struct sembuf init;
+        init.sem_num = 0;
+        init.sem_op = -1;
+        init.sem_flg = 0;
+        return semop(sem_idM, &init, 1);
 }
 
 void parseConf(Config *conf) {
@@ -356,6 +337,33 @@ void logmsg(char *message, enum Level l) {
   }
 }
 
+void execTaxi() {
+  int xArg, yArg;
+  char xArgBuffer[5], yArgBuffer[5], argBuffer1[5], argBuffer2[5],
+      argBuffer3[5];
+  char *args[7];
+  char *envp[1];
+
+  srand(time(NULL) ^ (getpid() << 16));
+  xArg = (rand() % SO_WIDTH);
+  yArg = (rand() % SO_HEIGHT);
+  snprintf(xArgBuffer, 5, "%d", xArg);
+  snprintf(yArgBuffer, 5, "%d", yArg);
+  snprintf(argBuffer1, 5, "%d", conf.SO_TIMENSEC_MIN);
+  snprintf(argBuffer2, 5, "%d", conf.SO_TIMENSEC_MAX);
+  snprintf(argBuffer3, 5, "%d", conf.SO_TIMEOUT);
+  args[0] = "taxi";
+  args[1] = xArgBuffer;
+  args[2] = yArgBuffer;
+  args[3] = argBuffer1;
+  args[4] = argBuffer2;
+  args[5] = argBuffer3;
+  args[6] = NULL;
+  envp[0] = NULL;
+  execve( "taxi", args, envp);
+  EXIT_ON_ERROR
+}
+
 void handler(int sig) {
   switch (sig) {
   case SIGINT:
@@ -389,6 +397,13 @@ void handler(int sig) {
       EXIT_ON_ERROR
     }
     break;
+  case SIGQUIT:
+    switch(fork()){
+    case -1:
+      EXIT_ON_ERROR
+    case 0:
+      execTaxi();
+    }
   case SIGUSR1:
     break;
   case SIGUSR2:
