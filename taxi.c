@@ -133,18 +133,23 @@ void moveTo(Point dest) { /*pathfinding*/
   if (DEBUG)
     printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
   oldDistance = data_msg.data.distance;
-  while (position.x != dest.x || position.y != dest.y) {
+  while (position.x != dest.x || position.y != dest.y){
+    t2 = 0;
+
+    if (DEBUG)
+      printf("[taxi-%d] pos: (%d,%d)\n", getpid(), dest.x, dest.y);
     dirX = dest.x - position.x;
     dirY = dest.y - position.y;
     temp.x = position.x;
     temp.y = position.y;
     found = 0;
-    if ((abs(dirX) <= 1 && dirY == 0) || (dirX == 0 && abs(dirY) <= 1)) {
-      incTrafficAt(temp);
+    if (abs(dirX + dirY) == 1) {
+      incTrafficAt(dest);
       decTrafficAt(position);
       position.x = dest.x;
       position.y = dest.y;
-      found = 1;
+      if (DEBUG)
+        printf("[taxi-%d] arrived at: (%d,%d)\n", getpid(), dest.x, dest.y);
     } else if (dirX >= 0 && dirY >= 0) {
       temp.x++;
       for (i = 0; i < 3 && !found; i++) {
@@ -227,7 +232,6 @@ void moveTo(Point dest) { /*pathfinding*/
         case 1:
           incTrafficAt(temp);
           decTrafficAt(position);
-
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
@@ -252,18 +256,27 @@ void moveTo(Point dest) { /*pathfinding*/
       printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
 
     t1 = (long)(rand() % (timensec_max - timensec_min)) + timensec_min;
+
+    if (DEBUG)
+      printf("[taxi-%d] transit time between %ld - %ld nsec;\n\tgenerated: %ld\n",
+             getpid(),timensec_max , timensec_min, t1);
+
     if (t1 > 999999999L) {
       t2 = floor(t1 / 1000000000L);
       t1 = t1 - 1000000000L * t2;
-      transit.tv_sec = t2;
     }
+    transit.tv_sec = t2;
     transit.tv_nsec = t1;
+    if (DEBUG)
+      printf("[taxi-%d] moving for %ld sec %ld nsec\n",
+             getpid(), t2, t1);
     nanosleep(&transit, NULL);
     data_msg.data.distance++;
   } /*END-while*/
   if ((data_msg.data.distance - oldDistance) >
       data_msg.data.maxDistanceInTrip) {
-    data_msg.data.maxDistanceInTrip = data_msg.data.distance - oldDistance;
+    data_msg.data.maxDistanceInTrip = data_msg.data.distance -
+                                      oldDistance;
   }
   logmsg("Arrived in", DB);
   if (DEBUG)
@@ -285,12 +298,12 @@ void incTrafficAt(Point p) {
 }
 
 void decTrafficAt(Point p) {
-		if(scrivi(p, sem_idR, sem_idW) < 0){
-        	EXIT_ON_ERROR
+                if(scrivi(p, sem_idR, sem_idW) < 0){
+                EXIT_ON_ERROR
         }
-		(*mapptr)[p.x][p.y].traffic--;
-		if(releaseW(p, sem_idW) < 0){
-        	EXIT_ON_ERROR
+                (*mapptr)[p.x][p.y].traffic--;
+                if(releaseW(p, sem_idW) < 0){
+                EXIT_ON_ERROR
         }
 }
 
