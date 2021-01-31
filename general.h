@@ -54,15 +54,14 @@ typedef struct {
   Point destination;
 } Message;
 
-int scrivi(Point p, int sem_idR, int sem_idW);
+int isFree(Cell (*map)[][SO_HEIGHT], Point p);
 
-int leggi(Point p, int sem_idR, int sem_idW);
+void semWait(Point, int);
 
-int releaseW(Point p, int sem_idW);
+void semSignal(Point, int);
 
-int releaseR(Point p, int sem_idR);
+void semSync(int);
 
-int isFree(Cell (*map)[][SO_HEIGHT], Point p, int sem_idW, int sem_idR);
 
 union semun {
   int val;

@@ -126,20 +126,6 @@ int main() {
     EXIT_ON_ERROR
   }
 
-  argM.val = 1;
-  if ((semkeyM = ftok("./makefile", 'm')) < 0) {
-    printf("ftok error\n");
-    EXIT_ON_ERROR
-  }
-  if ((sem_idM = semget(semkeyM, 1, IPC_CREAT | 0666)) < 0) {
-    printf("semget error\n");
-    EXIT_ON_ERROR
-  }
-  if (semctl(sem_idM, 0, SETVAL, argM) < 0) {
-    printf("semctl error\n");
-    EXIT_ON_ERROR
-  }
-
   if (DEBUG) {
     logmsg("Testing Map", DB);
     (*mapptr)[10][1].state = FREE;

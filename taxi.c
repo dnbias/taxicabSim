@@ -1,7 +1,8 @@
 #include "taxi.h"
-int shmid, source_id, master_qid, sem_idR, sem_idW, sem_idM;
+int shmid, source_id, master_qid, writers, mutex, sem;
 Cell (*mapptr)[][SO_HEIGHT];
 Point (*sourcesList_ptr)[MAX_SOURCES];
+int *readers;
 Point position;
 int qid, timensec_min, timensec_max, timeout;
 taxiData data;
@@ -10,7 +11,7 @@ struct timeval timer;
 
 int main(int argc, char **argv) {
   int received;
-  key_t shmkey, qkey, semkeyR, semkeyW, semkeyM;
+  key_t shmkey, qkey, key;
   Message msg;
   const struct timespec nsecs[] = {0, 500000000L};
   struct sigaction act;
@@ -25,15 +26,12 @@ int main(int argc, char **argv) {
   sigaction(SIGUSR1, &act, 0);
   sigaction(SIGUSR2, &act, 0);
 
+  /* Shared Memory */
   if ((shmkey = ftok("./makefile", 'b')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
   if ((shmid = shmget(shmkey, 0, 0644)) < 0) {
-    EXIT_ON_ERROR
-  }
-  if (shmid < 0) {
-    printf("shmget error\n");
     EXIT_ON_ERROR
   }
   if ((void *)(sourcesList_ptr = shmat(shmid, NULL, 0)) < (void *)0) {
@@ -47,14 +45,23 @@ int main(int argc, char **argv) {
   if ((shmid = shmget(shmkey, 0, 0644)) < 0) {
     EXIT_ON_ERROR
   }
-  if (shmid < 0) {
-    printf("shmget error\n");
-    EXIT_ON_ERROR
-  }
   if ((void *)(mapptr = shmat(shmid, NULL, 0)) < (void *)0) {
     logmsg("ERROR shmat - mapptr", RUNTIME);
     EXIT_ON_ERROR
   }
+
+  if ((shmkey = ftok("./makefile", 'z')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((shmid = shmget(shmkey, 0, 0666)) < 0) {
+    EXIT_ON_ERROR
+  }
+  if ((void *)(readers = shmat(shmid, NULL, 0)) < (void *)0) {
+    logmsg("ERROR shmat - readers", RUNTIME);
+    EXIT_ON_ERROR
+  }
+
   /*  queue for comunication with sources */
   if ((qkey = ftok("./makefile", 'q')) < 0) {
     EXIT_ON_ERROR
@@ -70,37 +77,43 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
-  if ((semkeyR = ftok("./makefile", 'r')) < 0) {
+
+  /* Semaphores */
+  if ((key = ftok("./makefile", 'y')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((sem_idR = semget(semkeyR, 0, 0)) < 0) {
+  if ((sem = semget(key, 0, 0666)) < 0) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
-  if ((semkeyW = ftok("./makefile", 'w')) < 0) {
+  if ((key = ftok("./makefile", 'w')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((sem_idW = semget(semkeyW, 0, 0)) < 0) {
+  if ((writers = semget(key, 0, 0666)) < 0) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
 
-  if ((semkeyM = ftok("./makefile", 'm')) < 0) {
+  if ((key = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((sem_idM = semget(semkeyM, 0, 0)) < 0) {
+  if ((mutex = semget(key, 0, 0666)) < 0) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
 
   sscanf(argv[1], "%d", &position.x);
   sscanf(argv[2], "%d", &position.y);
+  printf("(%d,%d)\n", position.x, position.y);
   sscanf(argv[3], "%d", &timensec_min);
+  printf("%d\n", timensec_min);
   sscanf(argv[4], "%d", &timensec_max);
+  printf("%d\n", timensec_max);
   sscanf(argv[5], "%d", &timeout);
+  printf("%d\n", timeout);
   logmsg("Init Finished", DB);
   srand(time(NULL) + getpid());
   data_msg.type = getpid();
@@ -112,9 +125,7 @@ int main(int argc, char **argv) {
   data_msg.data.tripsSuccess = 0;
   data_msg.data.abort = 0;
   /************END-INIT************/
-  if(isInit(sem_idM)){
-    EXIT_ON_ERROR
-  }
+  semSync(sem);
   gettimeofday(&timer, NULL);
   incTrafficAt(position);
   while (1) {
@@ -122,7 +133,7 @@ int main(int argc, char **argv) {
     moveTo(getNearSource(&source_id));
     received = 0;
     while(!received){
-      if(msgrcv(qid, &msg, sizeof(Point), source_id, 0) == -1){
+      if(msgrcv(qid, &msg, sizeof(Point), source_id, IPC_NOWAIT) == -1){
         checkTimeout();
       } else {
         received = 1;
@@ -168,7 +179,7 @@ void moveTo(Point dest) { /*pathfinding*/
       temp.x++;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
-        switch (isFree(mapptr, temp, sem_idR, sem_idW)) {
+        switch (canTransit(temp)) {
         case 1:
           incTrafficAt(temp);
           decTrafficAt(position);
@@ -195,7 +206,7 @@ void moveTo(Point dest) { /*pathfinding*/
       temp.x++;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
-        switch (isFree(mapptr, temp,  sem_idR, sem_idW)) {
+        switch (canTransit(temp)) {
         case 1:
           incTrafficAt(temp);
           decTrafficAt(position);
@@ -222,7 +233,7 @@ void moveTo(Point dest) { /*pathfinding*/
       temp.x--;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
-        switch (isFree(mapptr, temp, sem_idR, sem_idW)) {
+        switch (canTransit(temp)) {
         case 1:
           incTrafficAt(temp);
           decTrafficAt(position);
@@ -249,7 +260,7 @@ void moveTo(Point dest) { /*pathfinding*/
       temp.x--;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
-        switch (isFree(mapptr, temp, sem_idR, sem_idW)) {
+        switch (canTransit(temp)) {
         case 1:
           incTrafficAt(temp);
           decTrafficAt(position);
@@ -301,26 +312,34 @@ void moveTo(Point dest) { /*pathfinding*/
            getpid(), dest.x, dest.y);
 }
 
+int canTransit(Point p){
+  int r;
+  semWait(p, mutex);
+  *readers++;
+  if(*readers == 1)
+    semWait(p, writers);
+  semSignal(p, mutex);
+  r = isFree(mapptr, p) &&
+    (*mapptr)[p.x][p.y].traffic < (*mapptr)[p.x][p.y].capacity;
+  semWait(p, mutex);
+  *readers--;
+  if(*readers == 0)
+    semSignal(p, writers);
+  return r;
+}
+
 void incTrafficAt(Point p) {
-  if(scrivi(p, sem_idR, sem_idW) < 0){
-    EXIT_ON_ERROR
-  }
+  semWait(p, writers);
   (*mapptr)[p.x][p.y].traffic++;
-  if(releaseW(p, sem_idW) < 0){
-    EXIT_ON_ERROR
-  }
+  semSignal(p, writers);
   if (DEBUG)
     printf("[taxi-%d]->(%d,%d)\n", getpid(), p.x, p.y);
 }
 
 void decTrafficAt(Point p) {
-  if(scrivi(p, sem_idR, sem_idW) < 0){
-    EXIT_ON_ERROR
-  }
+  semWait(p, writers);
   (*mapptr)[p.x][p.y].traffic--;
-  if(releaseW(p, sem_idW) < 0){
-    EXIT_ON_ERROR
-  }
+  semSignal(p, writers);
 }
 
 void logmsg(char *message, enum Level l) {
@@ -344,7 +363,6 @@ Point getNearSource(int *source_id) {
   return s;
 }
 
-
 void checkTimeout(){
   struct timeval elapsed;
   int s, u, n;
@@ -362,6 +380,7 @@ void handler(int sig) {
     logmsg("Finishing up", DB);
     shmdt(mapptr);
     shmdt(sourcesList_ptr);
+    shmdt(readers);
     msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
     logmsg("Graceful exit successful", DB);
     exit(0);

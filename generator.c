@@ -3,27 +3,20 @@
 #include <signal.h>
 #include <unistd.h>
 Config conf;
-int shmid_sources, shmid_map, shmid_ex, qid, sem_idW, sem_idR, sem_idM;
+int shmid_sources, shmid_map, shmid_ex, shmid_readers, qid, writers, sem, mutex;
 Point (*sourcesList_ptr)[MAX_SOURCES];
 Cell (*mapptr)[][SO_HEIGHT];
+int *readers;
 
 int main(int argc, char **argv) {
-  int i, xArg, yArg, arg, *executing;
-  key_t shmkey, qkey, semkeyW, semkeyR, semkeyM;
-  char xArgBuffer[5], yArgBuffer[5], argBuffer1[5], argBuffer2[5],
-      argBuffer3[5];
-  char *args[7];
-  char *envp[1];
+  int i, cnt;
+  key_t key;
   int col, row;
-  union semun argR, argW;
+  union semun sem_arg;
   unsigned short semval[SO_WIDTH * SO_HEIGHT];
-  int cnt;
   struct sigaction act;
-  struct semid_ds idR, idW;
-
-  for (cnt = 0; cnt < SO_WIDTH * SO_HEIGHT; cnt++)
-    semval[cnt] = 0;
-
+  struct semid_ds sem_ds, writers_ds;
+  struct sembuf buf;
   /************ INIT ************/
 
   memset(&act, 0, sizeof(act));
@@ -34,11 +27,11 @@ int main(int argc, char **argv) {
   sigaction(SIGUSR1, &act, 0);
   sigaction(SIGUSR2, &act, 0);
   sigaction(SIGQUIT, &act, 0);
-  if ((shmkey = ftok("./makefile", 'm')) < 0) {
+  if ((key = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((shmid_map = shmget(shmkey, 0, 0666)) < 0) {
+  if ((shmid_map = shmget(key, 0, 0666)) < 0) {
     printf("shmget error\n");
     EXIT_ON_ERROR
   }
@@ -46,11 +39,11 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
-  if ((shmkey = ftok("./makefile", 'b')) < 0) {
+  if ((key = ftok("./makefile", 'b')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((shmid_sources = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Point),
+  if ((shmid_sources = shmget(key, SO_WIDTH * SO_HEIGHT * sizeof(Point),
                               IPC_CREAT | 0644)) < 0) {
     printf("shmget error\n");
     EXIT_ON_ERROR
@@ -59,51 +52,74 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
-  if ((qkey = ftok("./makefile", 'q')) < 0) {
+  if ((key = ftok("./makefile", 'z')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
+  if ((shmid_readers = shmget(key, sizeof(int),
+                              IPC_CREAT | 0666)) < 0) {
+    printf("shmget error\n");
+    EXIT_ON_ERROR
+  }
+  if ((void *)(readers = shmat(shmid_readers, NULL, 0)) < (void *)0) {
+    EXIT_ON_ERROR
+  }
+  *readers = 0;
+
+  if ((key = ftok("./makefile", 'q')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((qid = msgget(key, IPC_CREAT | 0644)) < 0) {
     printf("msgget error\n");
     EXIT_ON_ERROR
   }
 
-  if ((semkeyR = ftok("./makefile", 'r')) < 0) {
+
+  if ((key = ftok("./makefile", 'w')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  argR.buf = &idR;
-  argR.array = semval;
-  if ((sem_idR = semget(semkeyR, SO_WIDTH * SO_HEIGHT, IPC_CREAT | 0666)) < 0) {
+  if ((writers = semget(key, SO_WIDTH * SO_HEIGHT, IPC_CREAT | 0666)) < 0) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
-  if (semctl(sem_idR, 0, SETALL, argR) < 0) {
+  sem_arg.buf = &writers_ds;
+  for (cnt = 0; cnt < SO_WIDTH * SO_HEIGHT; cnt++)
+    semval[cnt] = 1;
+  sem_arg.array = semval;
+  if (semctl(writers, 0, SETALL, sem_arg) < 0) {
     printf("semctl error\n");
     EXIT_ON_ERROR
   }
 
-  if ((semkeyW = ftok("./makefile", 'w')) < 0) {
+  if ((key = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((sem_idW = semget(semkeyW, SO_WIDTH * SO_HEIGHT, IPC_CREAT | 0666)) < 0) {
+  if ((mutex = semget(key, SO_WIDTH * SO_HEIGHT, IPC_CREAT | 0666)) < 0) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
-  argW.buf = &idW;
-  argW.array = semval;
-  if (semctl(sem_idW, 0, SETALL, argW) < 0) {
+  sem_arg.buf = &sem_ds;
+  sem_arg.array = semval;
+  if (semctl(mutex, 0, SETALL, sem_arg) < 0) {
     printf("semctl error\n");
     EXIT_ON_ERROR
   }
 
-  if ((semkeyM = ftok("./makefile", 'm')) < 0) {
+  if ((key = ftok("./makefile", 'y')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((sem_idM = semget(semkeyM, 0, 0)) < 0) {
+  if ((sem = semget(key, 1, IPC_CREAT | 0666)) < 0) {
     printf("semget error\n");
+    EXIT_ON_ERROR
+  }
+
+  sem_arg.val = 1;
+  if (semctl(sem, 0, SETVAL, sem_arg) < 0) {
+    printf("semctl error\n");
     EXIT_ON_ERROR
   }
 
@@ -121,11 +137,10 @@ int main(int argc, char **argv) {
 
   logmsg("Generate map...", DB);
   generateMap(mapptr, &conf);
-
-  logmsg("Init complete", DB);
-
   srand(time(NULL) + getpid());
+  logmsg("Init complete", DB);
   /************ END-INIT ************/
+
 
   logmsg("Printing map...", DB);
   printMap(mapptr);
@@ -133,21 +148,14 @@ int main(int argc, char **argv) {
 
   for (i = 1; i < conf.SO_SOURCES + 1; i++) {
     if (DEBUG) {
-      printf("\tCreating Source n. %d\n", i);
+      printf("\tSource n. %d created\n", i);
     }
     switch (fork()) {
     case -1:
       EXIT_ON_ERROR
     case 0:
-      arg = i;
-      sprintf(argBuffer1, "%d", arg);
-      args[0] = "source";
-      args[1] = argBuffer1;
-      args[2] = NULL;
-      envp[0] = NULL;
-      execve( "source", args, envp);
-      /* here execv failed */
-      EXIT_ON_ERROR
+      printf("!!!!");
+      execSource(i);
     }
   }
 
@@ -163,9 +171,7 @@ int main(int argc, char **argv) {
       execTaxi();
     }
   }
-  if(allInit()){
-        EXIT_ON_ERROR
-  }
+  unblock(sem);
   logmsg("Starting Timer now.", DB);
   alarm(conf.SO_DURATION);
   if (kill(0, SIGUSR1) < 0) {
@@ -182,12 +188,13 @@ int main(int argc, char **argv) {
  * struct
  */
 
-int allInit(){
-        struct sembuf init;
-        init.sem_num = 0;
-        init.sem_op = -1;
-        init.sem_flg = 0;
-        return semop(sem_idM, &init, 1);
+void unblock(int sem){
+  struct sembuf buf;
+  buf.sem_num = 0;
+  buf.sem_op = -1;
+  buf.sem_flg = 0;
+  if(semop(sem, &buf, 1) < 0)
+    EXIT_ON_ERROR
 }
 
 void parseConf(Config *conf) {
@@ -338,30 +345,47 @@ void logmsg(char *message, enum Level l) {
 }
 
 void execTaxi() {
-  int xArg, yArg;
-  char xArgBuffer[5], yArgBuffer[5], argBuffer1[5], argBuffer2[5],
-      argBuffer3[5];
-  char *args[7];
-  char *envp[1];
-
-  srand(time(NULL) ^ (getpid() << 16));
-  xArg = (rand() % SO_WIDTH);
-  yArg = (rand() % SO_HEIGHT);
-  snprintf(xArgBuffer, 5, "%d", xArg);
-  snprintf(yArgBuffer, 5, "%d", yArg);
-  snprintf(argBuffer1, 5, "%d", conf.SO_TIMENSEC_MIN);
-  snprintf(argBuffer2, 5, "%d", conf.SO_TIMENSEC_MAX);
-  snprintf(argBuffer3, 5, "%d", conf.SO_TIMEOUT);
+  Point p;
+  int x, y, found = 0;
+  char argX[5],argY[5],argMin[5],argMax[5],argTime[5], *args[7], *envp[1];
   args[0] = "taxi";
-  args[1] = xArgBuffer;
-  args[2] = yArgBuffer;
-  args[3] = argBuffer1;
-  args[4] = argBuffer2;
-  args[5] = argBuffer3;
+  srand(time(NULL) ^ (getpid() << 16));
+
+  while (found != 1) {
+    x = (rand() % SO_WIDTH);
+    y = (rand() % SO_HEIGHT);
+    if (x >= 0 && x < SO_WIDTH &&
+        y >= 0 && y < SO_HEIGHT) {
+      p.x = x;
+      p.y = y;
+      if((*mapptr)[p.x][p.y].state != HOLE)
+        found = 1;
+    }
+  }
+  sprintf(argX, "%d", x);
+  args[1] = argX;
+  sprintf(argY, "%d", y);
+  args[2] = argY;
+  sprintf(argMin, "%d", conf.SO_TIMENSEC_MIN);
+  args[3] = argMin;
+  sprintf(argMax, "%d", conf.SO_TIMENSEC_MAX);
+  args[4] = argMax;
+  sprintf(argTime, "%d", conf.SO_TIMEOUT);
+  args[5] = argTime;
   args[6] = NULL;
   envp[0] = NULL;
   execve( "taxi", args, envp);
   EXIT_ON_ERROR
+}
+
+void execSource(int arg){
+  char argBuffer[5], *args[3], *envp[1];
+  sprintf(argBuffer, "%d", arg);
+  args[0] = "source";
+  args[1] = argBuffer;
+  args[2] = NULL;
+  envp[0] = NULL;
+  execve( "source", args, envp);
 }
 
 void handler(int sig) {
@@ -370,15 +394,24 @@ void handler(int sig) {
     printf("=============== Received SIGINT ==============\n");
     shmdt(mapptr);
     shmdt(sourcesList_ptr);
+    shmdt(readers);
     if (shmctl(shmid_sources, IPC_RMID, NULL)) {
       printf("\nError in shmctl: sources,\n");
       EXIT_ON_ERROR
     }
-    if (semctl(sem_idW, 0, IPC_RMID)) {
+    if (shmctl(shmid_readers, IPC_RMID, NULL)) {
       printf("\nError in shmctl: sources,\n");
       EXIT_ON_ERROR
     }
-    if (semctl(sem_idR, 0, IPC_RMID)) {
+    if (semctl(writers, 0, IPC_RMID)) {
+      printf("\nError in shmctl: sources,\n");
+      EXIT_ON_ERROR
+    }
+    if (semctl(sem, 0, IPC_RMID)) {
+      printf("\nError in shmctl: sources,\n");
+      EXIT_ON_ERROR
+    }
+    if (semctl(mutex, 0, IPC_RMID)) {
       printf("\nError in shmctl: sources,\n");
       EXIT_ON_ERROR
     }
