@@ -107,14 +107,9 @@ int main(int argc, char **argv) {
 
   sscanf(argv[1], "%d", &position.x);
   sscanf(argv[2], "%d", &position.y);
-  printf("(%d,%d)\n", position.x, position.y);
   sscanf(argv[3], "%d", &timensec_min);
-  printf("%d\n", timensec_min);
   sscanf(argv[4], "%d", &timensec_max);
-  printf("%d\n", timensec_max);
   sscanf(argv[5], "%d", &timeout);
-  printf("%d\n", timeout);
-  logmsg("Init Finished", DB);
   srand(time(NULL) + getpid());
   data_msg.type = getpid();
   data_msg.data.distance = 0;
@@ -124,6 +119,7 @@ int main(int argc, char **argv) {
   data_msg.data.clients = 0;
   data_msg.data.tripsSuccess = 0;
   data_msg.data.abort = 0;
+  logmsg("Init Finished", DB);
   /************END-INIT************/
   semSync(sem);
   gettimeofday(&timer, NULL);
@@ -132,6 +128,8 @@ int main(int argc, char **argv) {
     logmsg("Going to Nearest Source", DB);
     moveTo(getNearSource(&source_id));
     received = 0;
+    logmsg("Listening for call on:", DB);
+    printf("(%d,%d)\n", position.x, position.y);
     while(!received){
       if(msgrcv(qid, &msg, sizeof(Point), source_id, IPC_NOWAIT) == -1){
         checkTimeout();
@@ -162,7 +160,7 @@ void moveTo(Point dest) { /*pathfinding*/
     t2 = 0;
 
     if (DEBUG)
-      printf("[taxi-%d] pos: (%d,%d)\n", getpid(), dest.x, dest.y);
+      printf("[taxi-%d] pos: (%d,%d)\n", getpid(), position.x, position.y);
     dirX = dest.x - position.x;
     dirY = dest.y - position.y;
     temp.x = position.x;
@@ -370,8 +368,10 @@ void checkTimeout(){
   s = elapsed.tv_sec - timer.tv_sec;
   u = elapsed.tv_usec - timer.tv_usec;
   n = s*10^10 + u/1000;
-  if(n >= timeout)
-    raise(SIGQUIT);
+  if(n >= timeout){
+    logmsg("Timedout", RUNTIME);
+    kill(getpid() ,SIGQUIT);
+  }
 }
 
 void handler(int sig) {
@@ -387,7 +387,7 @@ void handler(int sig) {
   case SIGQUIT:
     kill(getppid(), SIGQUIT);
     data_msg.data.abort++;
-    raise(SIGINT);
+    kill(getpid(), SIGINT);
   case SIGUSR1:
     break;
   }

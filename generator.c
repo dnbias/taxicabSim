@@ -277,10 +277,10 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
   startTime = time(NULL); /* To stop the user from using too many holes */
   for (i = conf->SO_HOLES; i > 0; i--) {
     if (time(NULL) - startTime > 2) {
-      logmsg("I'm sorry, you selected too many holes to fit the map:/n/tRetry "
+      logmsg("I'm sorry, you selected too many holes to fit the map:\n\tRetry "
              "with less. Quitting...",
              RUNTIME);
-      exit(0);
+      kill(0, SIGINT);
     }
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
@@ -413,10 +413,6 @@ void handler(int sig) {
     }
     if (semctl(mutex, 0, IPC_RMID)) {
       printf("\nError in shmctl: sources,\n");
-      EXIT_ON_ERROR
-    }
-    if (msgctl(qid, IPC_RMID, NULL)) {
-      printf("\nError in msgctl,\n");
       EXIT_ON_ERROR
     }
     logmsg("Graceful exit successful", DB);

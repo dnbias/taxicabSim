@@ -11,6 +11,8 @@ int main(int argc, char **argv) {
   struct sigaction act;
 
   /********** INIT **********/
+  logmsg("Init", DB);
+
   memset(&act, 0, sizeof(act));
   act.sa_handler = handler;
 
@@ -95,35 +97,34 @@ int main(int argc, char **argv) {
   /********** END-INIT **********/
   semSync(sem);
   logmsg("Going into execution cycle", DB);
-  if (DEBUG)
-    while (1) {
-      nanosleep(&msgInterval, NULL);
-      while (found != 1) {
-        msg.destination.x = (rand() % SO_WIDTH);
-        msg.destination.y = (rand() % SO_HEIGHT);
-        if (msg.destination.x >= 0 && msg.destination.x < SO_WIDTH &&
-            msg.destination.y >= 0 && msg.destination.y < SO_HEIGHT) {
-          semWait(msg.destination, mutex);
-          *readers++;
-          if(*readers == 1)
-            semWait(msg.destination, writers);
-          semSignal(msg.destination, mutex);
-          found = isFree(mapptr, msg.destination);
-          semWait(msg.destination, mutex);
-          *readers--;
-          if(*readers == 0)
-            semSignal(msg.destination, writers);
-        }
+  while (1) {
+    nanosleep(&msgInterval, NULL);
+    while (found != 1) {
+      msg.destination.x = (rand() % SO_WIDTH);
+      msg.destination.y = (rand() % SO_HEIGHT);
+      if (msg.destination.x >= 0 && msg.destination.x < SO_WIDTH &&
+          msg.destination.y >= 0 && msg.destination.y < SO_HEIGHT) {
+        semWait(msg.destination, mutex);
+        *readers++;
+        if(*readers == 1)
+          semWait(msg.destination, writers);
+        semSignal(msg.destination, mutex);
+        found = isFree(mapptr, msg.destination);
+        semWait(msg.destination, mutex);
+        *readers--;
+        if(*readers == 0)
+          semSignal(msg.destination, writers);
       }
-      logmsg("Sending message:", DB);
-      if (DEBUG) {
-        printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
-               msg.destination.y);
-      }
-      msgsnd(qid, &msg, sizeof(Point), 0);
-      msg_master.requests++;
-      found = 0;
     }
+    logmsg("Sending message:", DB);
+    if (DEBUG) {
+      printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
+             msg.destination.y);
+    }
+    msgsnd(qid, &msg, sizeof(Point), 0);
+    msg_master.requests++;
+    found = 0;
+  }
 }
 
 void logmsg(char *message, enum Level l) {

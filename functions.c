@@ -13,9 +13,7 @@ int isFree(Cell (*map)[][SO_HEIGHT], Point p) {
 
 void semWait(Point p, int sem) {
   struct sembuf buf;
-  printf("waiting on sem(%d,%d)\n", p.x, p.y);
   buf.sem_num = p.y * SO_WIDTH + p.x;
-  printf("::sem[%d]\n", buf.sem_num);
   buf.sem_op = -1;
   buf.sem_flg = SEM_UNDO;
   if(semop(sem, &buf, 1) < 0)
