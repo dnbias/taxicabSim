@@ -1,5 +1,5 @@
 #include "taxi.h"
-int shmid, source_id, master_qid, writers, mutex, sem;
+int shmid, source_id, master_qid, writers, mutex, sem, semSource;
 Cell (*mapptr)[][SO_HEIGHT];
 Point (*sourcesList_ptr)[MAX_SOURCES];
 int *readers;
@@ -105,6 +105,16 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
+  if ((key = ftok("./makefile", 'k')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((semSource = semget(key, 0, 0666)) < 0) {
+    printf("semget error\n");
+    EXIT_ON_ERROR
+  }
+
+
   sscanf(argv[1], "%d", &position.x);
   sscanf(argv[2], "%d", &position.y);
   sscanf(argv[3], "%d", &timensec_min);
@@ -138,6 +148,7 @@ int main(int argc, char **argv) {
       }
     }
     data_msg.data.clients++;
+    sourceSetFree(nSource(&source_id));
     logmsg("Going to destination", DB);
     moveTo(msg.destination);
     data_msg.data.tripsSuccess++;
@@ -348,15 +359,28 @@ void logmsg(char *message, enum Level l) {
 
 Point getNearSource(int *source_id) {
   Point s;
-  int n, temp, d = INT_MAX;
+  int x, n, temp, d = INT_MAX;
   for (n = 0; n < MAX_SOURCES; n++) {
     temp = abs(position.x - (*sourcesList_ptr)[n].x) +
            abs(position.y - (*sourcesList_ptr)[n].y);
     if (d > temp) {
+      x = n;
       d = temp;
       s = (*sourcesList_ptr)[n];
       *source_id = n + 1;
     }
+  }
+  if(sourceFree(x) == 0)
+    s = getNearSource(source_id);
+  return s;
+}
+
+int nSource(int *source_id){
+  int s, n;
+  for (n = 0; n < MAX_SOURCES; n++) {
+	if(position.x == (*sourcesList_ptr)[n].x && position.y == (*sourcesList_ptr)[n].y){
+	  s = n;
+	 }
   }
   return s;
 }
@@ -381,7 +405,10 @@ void handler(int sig) {
     shmdt(mapptr);
     shmdt(sourcesList_ptr);
     shmdt(readers);
-    printf("\n\ndistance: %i, MAXdistance: %i, MAXtimeintrips: %ld, clients: %i, tripsSuccess: %i, abort: %i;\n\n",
+    msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
+    logmsg("Graceful exit successful", DB);
+    printf("\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, clients: %i, tripsSuccess: %i, abort: %i;\n\n",
+  data_msg.type,
   data_msg.data.distance,
   data_msg.data.maxDistanceInTrip,
   data_msg.data.maxTimeInTrip.tv_usec,
@@ -389,8 +416,7 @@ void handler(int sig) {
   data_msg.data.tripsSuccess,
   data_msg.data.abort
 );
-    msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
-    logmsg("Graceful exit successful", DB);
+
     exit(0);
   case SIGQUIT:
     kill(getppid(), SIGQUIT);
@@ -398,5 +424,22 @@ void handler(int sig) {
     kill(getpid(), SIGINT);
   case SIGUSR1:
     break;
+  }
+}
+
+int sourceFree(int n){
+  struct sembuf buf;
+  buf.sem_num = n;
+  buf.sem_op = -1;
+  buf.sem_flg = IPC_NOWAIT;
+  return semop(semSource, &buf, 1);
+}
+void sourceSetFree(int n){
+  struct sembuf buf;
+  buf.sem_num = n;
+  buf.sem_op = 1;
+  buf.sem_flg = 0;
+  if(semop(semSource, &buf, 1) == -1){
+    EXIT_ON_ERROR
   }
 }

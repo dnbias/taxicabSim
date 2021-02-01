@@ -3,7 +3,7 @@
 #include <signal.h>
 #include <unistd.h>
 Config conf;
-int shmid_sources, shmid_map, shmid_ex, shmid_readers, qid, writers, sem, mutex;
+int shmid_sources, shmid_map, shmid_ex, shmid_readers, qid, writers, sem, mutex, semSource;
 Point (*sourcesList_ptr)[MAX_SOURCES];
 Cell (*mapptr)[][SO_HEIGHT];
 int *readers;
@@ -12,10 +12,10 @@ int main(int argc, char **argv) {
   int i, cnt;
   key_t key;
   int col, row;
-  union semun sem_arg;
+  union semun sem_arg, sem_arg1;
   unsigned short semval[SO_WIDTH * SO_HEIGHT];
   struct sigaction act;
-  struct semid_ds sem_ds, writers_ds;
+  struct semid_ds sem_ds, writers_ds, source_ds;
   struct sembuf buf;
   /************ INIT ************/
 
@@ -116,9 +116,27 @@ int main(int argc, char **argv) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
-
   sem_arg.val = 1;
   if (semctl(sem, 0, SETVAL, sem_arg) < 0) {
+    printf("semctl error\n");
+    EXIT_ON_ERROR
+  }
+  
+/*trovare un modo per calcoalre il numero di sorgenti per poi creare i semafori*/
+
+  if ((key = ftok("./makefile", 'k')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((semSource = semget(key, SO_WIDTH * SO_HEIGHT , IPC_CREAT | 0666)) < 0) {
+    printf("semget error\n");
+    EXIT_ON_ERROR
+  }
+  sem_arg1.buf = &source_ds;
+  for (cnt = 0; cnt < SO_WIDTH * SO_HEIGHT; cnt++)
+    semval[cnt] = 1;
+  sem_arg1.array = semval;
+  if (semctl(semSource, 0, SETALL, sem_arg1) < 0) {
     printf("semctl error\n");
     EXIT_ON_ERROR
   }

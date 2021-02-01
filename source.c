@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
-
+ 
   srand(time(NULL) ^ (getpid() << 16));
   sscanf(argv[1], "%ld", &msg.type);
   msgInterval.tv_sec = 0;

@@ -18,6 +18,12 @@ Point getNearSource();
 
 void checkTimeout();
 
+void sourceSetFree(int n);
+
+int sourceFree(int n);
+
+int nSource(int *source_id);
+
 typedef struct {
   int distance;
   int maxDistanceInTrip;
