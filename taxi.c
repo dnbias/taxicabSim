@@ -5,7 +5,7 @@ Point (*sourcesList_ptr)[MAX_SOURCES];
 int *readers;
 Point position;
 int qid, timensec_min, timensec_max, timeout;
-taxiData data;
+/*taxiData data;*/
 dataMessage data_msg;
 struct timeval timer;
 
@@ -381,6 +381,14 @@ void handler(int sig) {
     shmdt(mapptr);
     shmdt(sourcesList_ptr);
     shmdt(readers);
+    printf("\n\ndistance: %i, MAXdistance: %i, MAXtimeintrips: %ld, clients: %i, tripsSuccess: %i, abort: %i;\n\n",
+  data_msg.data.distance,
+  data_msg.data.maxDistanceInTrip,
+  data_msg.data.maxTimeInTrip.tv_usec,
+  data_msg.data.clients,
+  data_msg.data.tripsSuccess,
+  data_msg.data.abort
+);
     msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
     logmsg("Graceful exit successful", DB);
     exit(0);

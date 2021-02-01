@@ -77,7 +77,7 @@ void printReport() {
   printf("\t\t%ld           \t%ld               \t%ld\n",
          simData.distanceWinner, simData.timeWinner, simData.tripsWinner);
   printf("\t\t%d            \t%ld               \t%d\n", simData.maxDistance,
-         simData.maxTime, simData.maxTrips);
+         simData.maxTime.tv_usec, simData.maxTrips);
 }
 
 int main() {
@@ -88,7 +88,7 @@ int main() {
   key_t shmkey, qkey, semkeyM;
   dataMessage msg;
   sourceMessage msg_source;
-  taxiData dataBuffer;
+  /*taxiData dataBuffer;*/
   struct msqid_ds q_ds;
   struct sigaction act;
   union semun argM;
@@ -168,12 +168,13 @@ int main() {
     simData.requests += buffer;
     msgctl(source_qid, IPC_STAT, &q_ds);
   }
+  msgctl(qid, IPC_STAT, &q_ds);
   while (q_ds.msg_qnum > 0) {
-    if (msgrcv(qid, &dataBuffer, sizeof(msg.data), 0, IPC_NOWAIT) == -1) {
+    if (msgrcv(qid, &msg, sizeof(taxiData), 0, IPC_NOWAIT) == -1) {
       perror("msgrcv");
       EXIT_ON_ERROR
     }
-    updateData(msg.type, &dataBuffer);
+    updateData(msg.type, &msg.data);
     msgctl(qid, IPC_STAT, &q_ds);
   }
   simData.tripsNotServed = simData.requests - simData.trips;
