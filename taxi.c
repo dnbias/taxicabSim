@@ -298,7 +298,7 @@ void moveTo(Point dest) { /*pathfinding*/
         }
       }
     } else if (dirX <= 0 && dirY >= 0) {
-      temp.y++;
+      temp.x--;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
         logmsg("Timeout passed", DB);
@@ -313,25 +313,25 @@ void moveTo(Point dest) { /*pathfinding*/
         case 0:
           switch (i) {
           case 0:
-            temp.x--;
-            temp.y--;
+            temp.x++;
+            temp.y++;
             break;
           case 1:
             temp.x = temp.x + 2;
             break;
           case 2:
-            temp.x--;
+            temp.x++;
             temp.y--;
             break;
           case 3:
-            temp.y = temp.y + 2;
+            temp.y = temp.y - 2;
             i = 0;
             break;
           }
         }
       }
     } else if (dirX <= 0 && dirY <= 0) {
-      temp.y--;
+      temp.x--;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
         logmsg("Timeout passed", DB);
@@ -346,18 +346,18 @@ void moveTo(Point dest) { /*pathfinding*/
         case 0:
           switch (i) {
           case 0:
-            temp.y++;
-            temp.x--;
+            temp.y--;
+            temp.x++;
             break;
           case 1:
-            temp.x = temp.x + 2;
+            temp.y = temp.y + 2;
             break;
           case 2:
-            temp.x--;
-            temp.y++;
+            temp.x++;
+            temp.y--;
             break;
           case 3:
-            temp.y = temp.y - 2;
+            temp.x = temp.x - 2;
             i = 0;
             break;
           }
@@ -391,6 +391,8 @@ void moveTo(Point dest) { /*pathfinding*/
 
 int canTransit(Point p) {
   int r;
+  if (!(p.x >= 0 && p.x < SO_WIDTH && p.y >= 0 && p.y < SO_HEIGHT))
+    return 0;
   semWait(p, mutex);
   *readers++;
   if (*readers == 1)
@@ -407,6 +409,8 @@ int canTransit(Point p) {
 }
 
 void incTrafficAt(Point p) {
+  if (!(p.x >= 0 && p.x < SO_WIDTH && p.y >= 0 && p.y < SO_HEIGHT))
+    EXIT_ON_ERROR
   semWait(p, writers);
   (*mapptr)[p.x][p.y].traffic++;
   semSignal(p, writers);
@@ -415,6 +419,8 @@ void incTrafficAt(Point p) {
 }
 
 void decTrafficAt(Point p) {
+  if (!(p.x >= 0 && p.x < SO_WIDTH && p.y >= 0 && p.y < SO_HEIGHT))
+    EXIT_ON_ERROR
   semWait(p, writers);
   (*mapptr)[p.x][p.y].traffic--;
   semSignal(p, writers);
@@ -451,6 +457,7 @@ void checkTimeout() {
   n = s * 1000 + (u / 10 ^ 3);
   if (n >= timeout) {
     logmsg("Timedout", RUNTIME);
+    decTrafficAt(position);
     data_msg.data.abort++;
     logmsg("Finishing up", DB);
     shmdt(mapptr);
@@ -474,6 +481,7 @@ void handler(int sig) {
   switch (sig) {
   case SIGINT:
     logmsg("Finishing up", DB);
+    decTrafficAt(position);
     shmdt(mapptr);
     shmdt(sourcesList_ptr);
     shmdt(readers);

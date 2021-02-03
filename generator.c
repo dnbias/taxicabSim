@@ -174,7 +174,7 @@ int main(int argc, char **argv) {
       execTaxi();
     }
   }
-  pause();
+
   unblock(sem);
   logmsg("Starting Timer now.", DB);
   printf("\tAlarm in %d seconds\n", conf.SO_DURATION);

@@ -97,10 +97,8 @@ int main(int argc, char **argv) {
   msg_master.type = 1;
   msg_master.requests = 0;
   /********** END-INIT **********/
-  if (msg.type == 1)
-    kill(getppid(), SIGUSR2);
-  else
-    semSyncSource(sem);
+
+  semSyncSource(sem);
 
   logmsg("Going into execution cycle", DB);
   while (1) {
