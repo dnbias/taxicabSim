@@ -4,6 +4,8 @@
 
 void handler(int);
 
+int semSyncSource(int);
+
 void logmsg(char *, enum Level);
 
 typedef struct {

@@ -17,6 +17,7 @@ int main(int argc, char **argv) {
   struct sigaction act;
   struct semid_ds sem_ds, writers_ds, source_ds;
   struct sembuf buf;
+
   /************ INIT ************/
 
   memset(&act, 0, sizeof(act));
@@ -121,7 +122,7 @@ int main(int argc, char **argv) {
     printf("semctl error\n");
     EXIT_ON_ERROR
   }
-  
+
 /*trovare un modo per calcoalre il numero di sorgenti per poi creare i semafori*/
 
   if ((key = ftok("./makefile", 'k')) < 0) {
@@ -189,6 +190,7 @@ int main(int argc, char **argv) {
       execTaxi();
     }
   }
+  pause();
   unblock(sem);
   logmsg("Starting Timer now.", DB);
   alarm(conf.SO_DURATION);
@@ -201,10 +203,7 @@ int main(int argc, char **argv) {
   kill(0, SIGINT);
 }
 
-/*
- * Parses the file taxicab.conf in the source directory and populates the Config
- * struct
- */
+
 
 void unblock(int sem){
   struct sembuf buf;
@@ -214,7 +213,10 @@ void unblock(int sem){
   if(semop(sem, &buf, 1) < 0)
     EXIT_ON_ERROR
 }
-
+/*
+ * Parses the file taxicab.conf in the source directory and populates the Config
+ * struct
+ */
 void parseConf(Config *conf) {
   FILE *in;
   char s[16], c;
@@ -365,7 +367,7 @@ void logmsg(char *message, enum Level l) {
 void execTaxi() {
   Point p;
   int x, y, found = 0;
-  char argX[5],argY[5],argMin[5],argMax[5],argTime[5], *args[7], *envp[1];
+  char argX[5],argY[5],argMin[5],argMax[5],argTime[5],argSources[5], *args[8], *envp[1];
   args[0] = "taxi";
   srand(time(NULL) ^ (getpid() << 16));
 
@@ -390,7 +392,9 @@ void execTaxi() {
   args[4] = argMax;
   sprintf(argTime, "%d", conf.SO_TIMEOUT);
   args[5] = argTime;
-  args[6] = NULL;
+  sprintf(argSources, "%d", conf.SO_SOURCES);
+  args[6] = argSources;
+  args[7] = NULL;
   envp[0] = NULL;
   execve( "taxi", args, envp);
   EXIT_ON_ERROR

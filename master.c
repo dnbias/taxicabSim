@@ -150,15 +150,16 @@ int main() {
   }
 
   pause();
-  t = time(NULL);
+  /*t = time(NULL);
   while (executing) {
     if ((time(NULL) - t) >= 1) {
       printMap(mapptr);
       t = time(NULL);
     }
-  }
+    }*/
   while (wait(NULL) > 0) {
   }
+  sleep(1);
   msgctl(source_qid, IPC_STAT, &q_ds);
   while (q_ds.msg_qnum > 0) {
     if (msgrcv(source_qid, &buffer, sizeof(int), 0, IPC_NOWAIT) == -1) {
@@ -181,6 +182,10 @@ int main() {
   printReport();
 
   if (shmctl(shmid_map, IPC_RMID, NULL)) {
+    printf("\nError in shmctl: map,\n");
+    EXIT_ON_ERROR
+  }
+  if (msgctl(source_qid, IPC_RMID, NULL) == -1) {
     printf("\nError in shmctl: map,\n");
     EXIT_ON_ERROR
   }

@@ -4,7 +4,7 @@ Cell (*mapptr)[][SO_HEIGHT];
 Point (*sourcesList_ptr)[MAX_SOURCES];
 int *readers;
 Point position;
-int qid, timensec_min, timensec_max, timeout;
+int qid, timensec_min, timensec_max, timeout, n_sources;
 /*taxiData data;*/
 dataMessage data_msg;
 struct timeval timer;
@@ -62,13 +62,6 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
-  /*  queue for comunication with sources */
-  if ((qkey = ftok("./makefile", 'q')) < 0) {
-    EXIT_ON_ERROR
-  }
-  if ((qid = msgget(qkey, 0644)) < 0) {
-    EXIT_ON_ERROR
-  }
   /*  queue for comunication with master */
   if ((qkey = ftok("./makefile", 'd')) < 0) {
     EXIT_ON_ERROR
@@ -114,12 +107,21 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
+  semSync(sem);
+  /*  queue for comunication with sources */
+  if ((qkey = ftok("./makefile", 'q')) < 0) {
+    EXIT_ON_ERROR
+  }
+  if ((qid = msgget(qkey, 0644)) < 0) {
+    EXIT_ON_ERROR
+  }
 
   sscanf(argv[1], "%d", &position.x);
   sscanf(argv[2], "%d", &position.y);
   sscanf(argv[3], "%d", &timensec_min);
   sscanf(argv[4], "%d", &timensec_max);
   sscanf(argv[5], "%d", &timeout);
+  sscanf(argv[6], "%d", &n_sources);
   srand(time(NULL) + getpid());
   data_msg.type = getpid();
   data_msg.data.distance = 0;
@@ -131,7 +133,7 @@ int main(int argc, char **argv) {
   data_msg.data.abort = 0;
   logmsg("Init Finished", DB);
   /************END-INIT************/
-  semSync(sem);
+
   gettimeofday(&timer, NULL);
   incTrafficAt(position);
   while (1) {
@@ -168,6 +170,7 @@ void moveTo(Point dest) { /*pathfinding*/
   gettimeofday(&start, NULL);
   while (position.x != dest.x || position.y != dest.y){
     checkTimeout();
+    logmsg("Timeout passed", DB);
     t2 = 0;
 
     if (DEBUG)
@@ -184,10 +187,61 @@ void moveTo(Point dest) { /*pathfinding*/
       position.y = dest.y;
       if (DEBUG)
         printf("[taxi-%d] arrived at: (%d,%d)\n", getpid(), dest.x, dest.y);
+      break;
+    }
+    if (dirX == 0 && dirY > 0 && (*mapptr)[temp.x][temp.y+1].state==FREE) {
+      temp.y++;
+      while(!found){
+        checkTimeout();
+        if(canTransit(temp)){
+          incTrafficAt(temp);
+          decTrafficAt(position);
+          position.x = temp.x;
+          position.y = temp.y;
+          found = 1;
+        }
+      }
+    } else if (dirX == 0 && dirY < 0 && (*mapptr)[temp.x][temp.y-1].state==FREE) {
+      temp.y--;
+      while(!found){
+        checkTimeout();
+        if(canTransit(temp)){
+          incTrafficAt(temp);
+          decTrafficAt(position);
+          position.x = temp.x;
+          position.y = temp.y;
+          found = 1;
+        }
+      }
+    } else if (dirY == 0 && dirX > 0 && (*mapptr)[temp.x+1][temp.y].state==FREE) {
+      temp.x++;
+      while(!found){
+        checkTimeout();
+        if(canTransit(temp)){
+          incTrafficAt(temp);
+          decTrafficAt(position);
+          position.x = temp.x;
+          position.y = temp.y;
+          found = 1;
+        }
+      }
+    } else if (dirY == 0 && dirX < 0 && (*mapptr)[temp.x-1][temp.y].state==FREE) {
+      temp.x--;
+      while(!found){
+        checkTimeout();
+        if(canTransit(temp)){
+          incTrafficAt(temp);
+          decTrafficAt(position);
+          position.x = temp.x;
+          position.y = temp.y;
+          found = 1;
+        }
+      }
     } else if (dirX >= 0 && dirY >= 0) {
       temp.x++;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
+        logmsg("Timeout passed", DB);
         switch (canTransit(temp)) {
         case 1:
           incTrafficAt(temp);
@@ -215,6 +269,7 @@ void moveTo(Point dest) { /*pathfinding*/
       temp.x++;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
+        logmsg("Timeout passed", DB);
         switch (canTransit(temp)) {
         case 1:
           incTrafficAt(temp);
@@ -242,6 +297,7 @@ void moveTo(Point dest) { /*pathfinding*/
       temp.x--;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
+        logmsg("Timeout passed", DB);
         switch (canTransit(temp)) {
         case 1:
           incTrafficAt(temp);
@@ -269,6 +325,7 @@ void moveTo(Point dest) { /*pathfinding*/
       temp.x--;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
+        logmsg("Timeout passed", DB);
         switch (canTransit(temp)) {
         case 1:
           incTrafficAt(temp);
@@ -360,7 +417,7 @@ void logmsg(char *message, enum Level l) {
 Point getNearSource(int *source_id) {
   Point s;
   int x, n, temp, d = INT_MAX;
-  for (n = 0; n < MAX_SOURCES; n++) {
+  for (n = 0; n < n_sources; n++) {
     temp = abs(position.x - (*sourcesList_ptr)[n].x) +
            abs(position.y - (*sourcesList_ptr)[n].y);
     if (d > temp) {
@@ -378,9 +435,9 @@ Point getNearSource(int *source_id) {
 int nSource(int *source_id){
   int s, n;
   for (n = 0; n < MAX_SOURCES; n++) {
-	if(position.x == (*sourcesList_ptr)[n].x && position.y == (*sourcesList_ptr)[n].y){
-	  s = n;
-	 }
+        if(position.x == (*sourcesList_ptr)[n].x && position.y == (*sourcesList_ptr)[n].y){
+          s = n;
+         }
   }
   return s;
 }
@@ -388,14 +445,16 @@ int nSource(int *source_id){
 void checkTimeout(){
   struct timeval elapsed;
   int s, u, n;
+  logmsg("Timeout check", DB);
   gettimeofday(&elapsed, NULL);
   s = elapsed.tv_sec - timer.tv_sec;
   u = elapsed.tv_usec - timer.tv_usec;
-  n = s*10^10 + u/1000;
+  n = s*1000 + u/10^3;
   if(n >= timeout){
     logmsg("Timedout", RUNTIME);
-    kill(getpid() ,SIGQUIT);
-  }
+    raise(SIGQUIT);
+  } else
+    return;
 }
 
 void handler(int sig) {
@@ -408,20 +467,20 @@ void handler(int sig) {
     msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
     logmsg("Graceful exit successful", DB);
     printf("\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, clients: %i, tripsSuccess: %i, abort: %i;\n\n",
-  data_msg.type,
-  data_msg.data.distance,
-  data_msg.data.maxDistanceInTrip,
-  data_msg.data.maxTimeInTrip.tv_usec,
-  data_msg.data.clients,
-  data_msg.data.tripsSuccess,
-  data_msg.data.abort
-);
+      data_msg.type,
+      data_msg.data.distance,
+      data_msg.data.maxDistanceInTrip,
+      data_msg.data.maxTimeInTrip.tv_usec,
+      data_msg.data.clients,
+      data_msg.data.tripsSuccess,
+      data_msg.data.abort);
 
     exit(0);
   case SIGQUIT:
+    logmsg("SIGQUIT", RUNTIME);
     kill(getppid(), SIGQUIT);
     data_msg.data.abort++;
-    kill(getpid(), SIGINT);
+    raise(SIGINT);
   case SIGUSR1:
     break;
   }
@@ -442,4 +501,13 @@ void sourceSetFree(int n){
   if(semop(semSource, &buf, 1) == -1){
     EXIT_ON_ERROR
   }
+}
+
+void semSync(int sem){
+  struct sembuf buf;
+  buf.sem_num = 0;
+  buf.sem_op = 0;
+  buf.sem_flg = 0;
+  if(semop(sem, &buf, 1) < 0)
+    EXIT_ON_ERROR
 }

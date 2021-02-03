@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
- 
+
   srand(time(NULL) ^ (getpid() << 16));
   sscanf(argv[1], "%ld", &msg.type);
   msgInterval.tv_sec = 0;
@@ -95,7 +95,9 @@ int main(int argc, char **argv) {
   msg_master.type = 1;
   msg_master.requests = 0;
   /********** END-INIT **********/
-  semSync(sem);
+  if (semSyncSource(sem) < 0)
+    kill(getppid(), SIGUSR2);
+
   logmsg("Going into execution cycle", DB);
   while (1) {
     nanosleep(&msgInterval, NULL);
@@ -127,6 +129,15 @@ int main(int argc, char **argv) {
   }
 }
 
+void unblock(int sem){
+  struct sembuf buf;
+  buf.sem_num = 0;
+  buf.sem_op = -1;
+  buf.sem_flg = 0;
+  if(semop(sem, &buf, 1) < 0)
+    EXIT_ON_ERROR
+}
+
 void logmsg(char *message, enum Level l) {
   int pid;
   if (l <= DEBUG) {
@@ -147,4 +158,14 @@ void handler(int sig) {
   case SIGUSR1:
     break;
   }
+}
+int semSyncSource(int sem){
+  struct sembuf buf;
+  buf.sem_num = 0;
+  buf.sem_op = 0;
+  buf.sem_flg = IPC_NOWAIT;
+  if (semop(sem, &buf, 1) < 0)
+    return -1;
+  else
+    return 0;
 }
