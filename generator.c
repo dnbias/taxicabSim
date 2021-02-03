@@ -3,7 +3,8 @@
 #include <signal.h>
 #include <unistd.h>
 Config conf;
-int shmid_sources, shmid_map, shmid_ex, shmid_readers, qid, writers, sem, mutex, semSource;
+int shmid_sources, shmid_map, shmid_ex, shmid_readers, qid, writers, sem, mutex,
+    semSource;
 Point (*sourcesList_ptr)[MAX_SOURCES];
 Cell (*mapptr)[][SO_HEIGHT];
 int *readers;
@@ -59,8 +60,7 @@ int main(int argc, char **argv) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((shmid_readers = shmget(key, sizeof(int),
-                              IPC_CREAT | 0666)) < 0) {
+  if ((shmid_readers = shmget(key, sizeof(int), IPC_CREAT | 0666)) < 0) {
     printf("shmget error\n");
     EXIT_ON_ERROR
   }
@@ -77,7 +77,6 @@ int main(int argc, char **argv) {
     printf("msgget error\n");
     EXIT_ON_ERROR
   }
-
 
   if ((key = ftok("./makefile", 'w')) < 0) {
     printf("ftok error\n");
@@ -125,7 +124,9 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
+
   parseConf(&conf);
+
   if (DEBUG) {
     logmsg("Testing Map:", DB);
     for (col = 0; col < SO_WIDTH; col++) {
@@ -142,7 +143,6 @@ int main(int argc, char **argv) {
   srand(time(NULL) + getpid());
   logmsg("Init complete", DB);
   /************ END-INIT ************/
-
 
   logmsg("Printing map...", DB);
   printMap(mapptr);
@@ -186,14 +186,12 @@ int main(int argc, char **argv) {
   kill(0, SIGINT);
 }
 
-
-
-void unblock(int sem){
+void unblock(int sem) {
   struct sembuf buf;
   buf.sem_num = 0;
   buf.sem_op = -1;
   buf.sem_flg = 0;
-  if(semop(sem, &buf, 1) < 0)
+  if (semop(sem, &buf, 1) < 0)
     EXIT_ON_ERROR
 }
 /*
@@ -350,18 +348,18 @@ void logmsg(char *message, enum Level l) {
 void execTaxi() {
   Point p;
   int x, y, found = 0;
-  char argX[5],argY[5],argMin[5],argMax[5],argTime[5],argSources[5], *args[8], *envp[1];
+  char argX[5], argY[5], argMin[5], argMax[5], argTime[5], argSources[5],
+      *args[8], *envp[1];
   args[0] = "taxi";
   srand(time(NULL) ^ (getpid() << 16));
 
   while (found != 1) {
     x = (rand() % SO_WIDTH);
     y = (rand() % SO_HEIGHT);
-    if (x >= 0 && x < SO_WIDTH &&
-        y >= 0 && y < SO_HEIGHT) {
+    if (x >= 0 && x < SO_WIDTH && y >= 0 && y < SO_HEIGHT) {
       p.x = x;
       p.y = y;
-      if((*mapptr)[p.x][p.y].state != HOLE)
+      if ((*mapptr)[p.x][p.y].state != HOLE)
         found = 1;
     }
   }
@@ -379,18 +377,18 @@ void execTaxi() {
   args[6] = argSources;
   args[7] = NULL;
   envp[0] = NULL;
-  execve( "taxi", args, envp);
+  execve("taxi", args, envp);
   EXIT_ON_ERROR
 }
 
-void execSource(int arg){
+void execSource(int arg) {
   char argBuffer[5], *args[3], *envp[1];
   sprintf(argBuffer, "%d", arg);
   args[0] = "source";
   args[1] = argBuffer;
   args[2] = NULL;
   envp[0] = NULL;
-  execve( "source", args, envp);
+  execve("source", args, envp);
 }
 
 void handler(int sig) {
@@ -402,43 +400,42 @@ void handler(int sig) {
     shmdt(readers);
     if (shmctl(shmid_sources, IPC_RMID, NULL)) {
       printf("\nError in shmctl: sources,\n");
-      EXIT_ON_ERROR
     }
     if (shmctl(shmid_readers, IPC_RMID, NULL)) {
-      printf("\nError in shmctl: sources,\n");
-      EXIT_ON_ERROR
+      printf("\nError in shmctl: readers,\n");
     }
     if (semctl(writers, 0, IPC_RMID)) {
-      printf("\nError in shmctl: sources,\n");
-      EXIT_ON_ERROR
+      printf("\nError in shmctl: writers,\n");
     }
     if (semctl(sem, 0, IPC_RMID)) {
-      printf("\nError in shmctl: sources,\n");
-      EXIT_ON_ERROR
+      printf("\nError in semctl: sem,\n");
     }
     if (semctl(mutex, 0, IPC_RMID)) {
-      printf("\nError in shmctl: sources,\n");
-      EXIT_ON_ERROR
+      printf("\nError in semctl: mutex,\n");
     }
     logmsg("Graceful exit successful", DB);
     if (kill(0, SIGUSR2) < 0) {
-      EXIT_ON_ERROR
     }
     exit(0);
     break;
   case SIGALRM:
-    if (kill(0, SIGINT) < 0) {
-      EXIT_ON_ERROR
-    }
+    kill(0, SIGINT);
     break;
   case SIGQUIT:
-    switch(fork()){
+    logmsg("Received SIGQUIT", DB);
+    switch (fork()) {
     case -1:
+      logmsg("fork fail", DB);
       EXIT_ON_ERROR
     case 0:
+      logmsg("fork success", DB);
       execTaxi();
+      break;
     }
+    logmsg("exiting SIGQUIT", DB);
+    break;
   case SIGUSR1:
+    logmsg("Received SIGUSR1", DB);
     break;
   case SIGUSR2:
     break;
