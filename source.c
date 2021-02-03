@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
   if ((qid = msgget(key, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
-   /*  queue for comunication with master */
+  /*  queue for comunication with master */
   if ((key = ftok("./makefile", 's')) < 0) {
     EXIT_ON_ERROR
   }
@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
   if ((writers = semget(key, 0, 0666)) < 0) {
     printf("semget error\n");
     EXIT_ON_ERROR
-   }
+  }
   if ((key = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -108,14 +108,15 @@ int main(int argc, char **argv) {
           msg.destination.y >= 0 && msg.destination.y < SO_HEIGHT) {
         semWait(msg.destination, mutex);
         *readers++;
-        if(*readers == 1)
+        if (*readers == 1)
           semWait(msg.destination, writers);
         semSignal(msg.destination, mutex);
         found = isFree(mapptr, msg.destination);
         semWait(msg.destination, mutex);
         *readers--;
-        if(*readers == 0)
+        if (*readers == 0)
           semSignal(msg.destination, writers);
+        semSignal(msg.destination, mutex);
       }
     }
     logmsg("Sending message:", DB);
@@ -129,12 +130,12 @@ int main(int argc, char **argv) {
   }
 }
 
-void unblock(int sem){
+void unblock(int sem) {
   struct sembuf buf;
   buf.sem_num = 0;
   buf.sem_op = -1;
   buf.sem_flg = 0;
-  if(semop(sem, &buf, 1) < 0)
+  if (semop(sem, &buf, 1) < 0)
     EXIT_ON_ERROR
 }
 
@@ -156,10 +157,11 @@ void handler(int sig) {
     logmsg("Graceful exit successful", DB);
     exit(0);
   case SIGUSR1:
-    break;
+    logmsg("Received SIGUSR1", DB);
+    return;
   }
 }
-int semSyncSource(int sem){
+int semSyncSource(int sem) {
   struct sembuf buf;
   buf.sem_num = 0;
   buf.sem_op = 0;
