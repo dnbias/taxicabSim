@@ -7,7 +7,7 @@ int shmid_sources, shmid_map, shmid_ex, shmid_readers, qid, writers, sem, mutex,
     semSource;
 Point (*sourcesList_ptr)[MAX_SOURCES];
 Cell (*mapptr)[][SO_HEIGHT];
-int *readers;
+int *readers, dead_taxis = 0;
 
 int main(int argc, char **argv) {
   int i, cnt;
@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
   sigaction(SIGUSR2, &act, 0);
   sigaction(SIGQUIT, &act, 0);
   sigaction(SIGTSTP, &act, 0);
-  
+
   if ((key = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -124,7 +124,6 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
-
   parseConf(&conf);
 
   if (DEBUG) {
@@ -182,7 +181,21 @@ int main(int argc, char **argv) {
   }
   logmsg("Waiting for Children...", DB);
   while (wait(NULL) > 0) {
+    if (dead_taxis > 0) {
+      logmsg("Relaunching taxi...", DB);
+      for (; dead_taxis > 0; dead_taxis--) {
+        switch (fork()) {
+        case -1:
+          EXIT_ON_ERROR
+        case 0:
+          execTaxi();
+        }
+      }
+    }
   }
+  while (wait(NULL) > 0) {
+  }
+
   kill(0, SIGINT);
 }
 
@@ -436,10 +449,11 @@ void handler(int sig) {
     break;
   case SIGUSR1:
     logmsg("Received SIGUSR1", DB);
+    dead_taxis++;
     break;
   case SIGUSR2:
     break;
- case SIGTSTP:
- 	break;
+  case SIGTSTP:
+    break;
   }
 }

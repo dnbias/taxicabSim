@@ -128,18 +128,19 @@ int main(int argc, char **argv) {
   gettimeofday(&timer, NULL);
   incTrafficAt(position);
   while (1) {
-    logmsg("Going to Nearest Source", DB);
+    logmsg("Going to Nearest Source", RUNTIME);
     moveTo(getNearSource(&source_id));
     received = 0;
 
     while (!received) {
       logmsg("Listening for call on:", DB);
-      printf("Source[%d](%d,%d)\n", source_id, position.x, position.y);
+      if (DEBUG)
+        printf("Source[%d](%d,%d)\n", source_id, position.x, position.y);
       msgrcv(qid, &msg, sizeof(Point), source_id, 0);
       received = 1;
     }
     data_msg.data.clients++;
-    logmsg("Going to destination", DB);
+    logmsg("Going to destination", RUNTIME);
     moveTo(msg.destination);
     data_msg.data.tripsSuccess++;
   }
@@ -380,9 +381,8 @@ void moveTo(Point dest) { /*pathfinding*/
       data_msg.data.maxDistanceInTrip) {
     data_msg.data.maxDistanceInTrip = data_msg.data.distance - oldDistance;
   }
-  logmsg("Arrived in", DB);
-  if (DEBUG)
-    printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
+  logmsg("Arrived in", RUNTIME);
+  printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
 }
 
 int canTransit(Point p) {
@@ -461,7 +461,8 @@ void handler(int sig) {
     shmdt(readers);
     msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
     logmsg("Graceful exit successful", DB);
-    printf(ANSI_COLOR_MAGENTA "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
+    printf(ANSI_COLOR_MAGENTA
+           "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
            "clients: %i, tripsSuccess: %i, abort: %i;\n\n" ANSI_COLOR_RESET,
            data_msg.type, data_msg.data.distance,
            data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
@@ -496,4 +497,3 @@ void handler(int sig) {
     break;
   }
 }
-

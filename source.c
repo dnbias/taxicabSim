@@ -2,7 +2,7 @@
 MasterMessage msg_master;
 Cell (*mapptr)[][SO_HEIGHT];
 int master_qid, *readers;
-  int shmid, qid, found = 0, sem, writers, mutex;
+int shmid, qid, found = 0, sem, writers, mutex;
 
 int main(int argc, char **argv) {
   /*int shmid, qid, found = 0, sem, writers, mutex;*/
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
     EXIT_ON_ERROR
   }
 
-  /* Semaphres */
+  /* Semaphores */
   if ((key = ftok("./makefile", 'y')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -162,10 +162,10 @@ void handler(int sig) {
     logmsg("Received SIGUSR1", DB);
     break;
   case SIGTSTP:
-  	logmsg("Received SIGSTOP", RUNTIME);
-  	utentRequest();
-  	break;
-  return;
+    logmsg("Received SIGSTOP", RUNTIME);
+    utentRequest();
+    break;
+    return;
   }
 }
 int semSyncSource(int sem) {
@@ -178,38 +178,37 @@ int semSyncSource(int sem) {
   else
     return 0;
 }
-void utentRequest(){
-	Message msg;
-	int found;
-	if (semSyncSource(sem) < 0)
-      kill(getppid(), SIGUSR2);
-    found = 1;
-    while (found != 0) {
-      msg.destination.x = (rand() % SO_WIDTH);
-      msg.destination.y = (rand() % SO_HEIGHT);
-      if (msg.destination.x >= 0 && msg.destination.x < SO_WIDTH &&
-          msg.destination.y >= 0 && msg.destination.y < SO_HEIGHT) {
-        semWait(msg.destination, mutex);
-        *readers++;
-        if (*readers == 1)
-          semWait(msg.destination, writers);
-        semSignal(msg.destination, mutex);
-        found = isFree(mapptr, msg.destination);
-        semWait(msg.destination, mutex);
-        *readers--;
-        if (*readers == 0)
-          semSignal(msg.destination, writers);
-        semSignal(msg.destination, mutex);
-      }
-      found = 0;
+void utentRequest() {
+  Message msg;
+  int found;
+  if (semSyncSource(sem) < 0)
+    kill(getppid(), SIGUSR2);
+  found = 1;
+  while (found != 0) {
+    msg.destination.x = (rand() % SO_WIDTH);
+    msg.destination.y = (rand() % SO_HEIGHT);
+    if (msg.destination.x >= 0 && msg.destination.x < SO_WIDTH &&
+        msg.destination.y >= 0 && msg.destination.y < SO_HEIGHT) {
+      semWait(msg.destination, mutex);
+      *readers++;
+      if (*readers == 1)
+        semWait(msg.destination, writers);
+      semSignal(msg.destination, mutex);
+      found = isFree(mapptr, msg.destination);
+      semWait(msg.destination, mutex);
+      *readers--;
+      if (*readers == 0)
+        semSignal(msg.destination, writers);
+      semSignal(msg.destination, mutex);
     }
-    logmsg(ANSI_COLOR_RED "Sending message:" ANSI_COLOR_RESET, DB);
-    if (DEBUG) {
-      printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
-             msg.destination.y);
-    }
-    msgsnd(qid, &msg, sizeof(Point), 0);
-    msg_master.requests++;
-    return;
+    found = 0;
+  }
+  logmsg(ANSI_COLOR_RED "Sending message:" ANSI_COLOR_RESET, DB);
+  if (DEBUG) {
+    printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
+           msg.destination.y);
+  }
+  msgsnd(qid, &msg, sizeof(Point), 0);
+  msg_master.requests++;
+  return;
 }
-
