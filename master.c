@@ -31,6 +31,8 @@ void handler(int sig) {
     printMap(mapptr);
     alarm(1);
     break;
+  case SIGQUIT:
+    break;
   case SIGUSR1:
     break;
   case SIGUSR2:
@@ -84,7 +86,7 @@ int main() {
   char *args[2];
   char *envp[1];
   char id_buffer[30];
-  int shmid_map, qid, source_qid, t, sem_idM , buffer;
+  int shmid_map, qid, source_qid, t, sem_idM, buffer;
   key_t shmkey, qkey, semkeyM;
   dataMessage msg;
   sourceMessage msg_source;
@@ -98,6 +100,7 @@ int main() {
 
   sigaction(SIGINT, &act, 0);
   sigaction(SIGALRM, &act, 0);
+  sigaction(SIGQUIT, &act, 0);
   sigaction(SIGUSR1, &act, 0);
   sigaction(SIGUSR2, &act, 0);
 
@@ -150,15 +153,16 @@ int main() {
   }
 
   pause();
-  t = time(NULL);
+  /*t = time(NULL);
   while (executing) {
     if ((time(NULL) - t) >= 1) {
       printMap(mapptr);
       t = time(NULL);
     }
-  }
+    }*/
   while (wait(NULL) > 0) {
   }
+  sleep(1);
   msgctl(source_qid, IPC_STAT, &q_ds);
   while (q_ds.msg_qnum > 0) {
     if (msgrcv(source_qid, &buffer, sizeof(int), 0, IPC_NOWAIT) == -1) {
@@ -181,6 +185,10 @@ int main() {
   printReport();
 
   if (shmctl(shmid_map, IPC_RMID, NULL)) {
+    printf("\nError in shmctl: map,\n");
+    EXIT_ON_ERROR
+  }
+  if (msgctl(source_qid, IPC_RMID, NULL) == -1) {
     printf("\nError in shmctl: map,\n");
     EXIT_ON_ERROR
   }

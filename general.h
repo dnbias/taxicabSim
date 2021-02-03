@@ -19,9 +19,9 @@
 #define DEBUG 0
 #endif
 
-#define SO_WIDTH 10 /* a tempo di compilazione */
-#define SO_HEIGHT 5
-#define MAX_SOURCES SO_WIDTH*SO_HEIGHT
+#define SO_WIDTH 30 /* a tempo di compilazione */
+#define SO_HEIGHT 32
+#define MAX_SOURCES SO_WIDTH *SO_HEIGHT
 #define EXIT_ON_ERROR                                                          \
   if (errno) {                                                                 \
     fprintf(stderr, "%d: pid %ld; errno: %d (%s)\n", __LINE__, (long)getpid(), \
@@ -61,7 +61,6 @@ void semWait(Point, int);
 void semSignal(Point, int);
 
 void semSync(int);
-
 
 union semun {
   int val;

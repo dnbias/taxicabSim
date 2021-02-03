@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
   if ((qid = msgget(key, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
   }
-   /*  queue for comunication with master */
+  /*  queue for comunication with master */
   if ((key = ftok("./makefile", 's')) < 0) {
     EXIT_ON_ERROR
   }
@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
   if ((writers = semget(key, 0, 0666)) < 0) {
     printf("semget error\n");
     EXIT_ON_ERROR
-   }
+  }
   if ((key = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
- 
+
   srand(time(NULL) ^ (getpid() << 16));
   sscanf(argv[1], "%ld", &msg.type);
   msgInterval.tv_sec = 0;
@@ -95,7 +95,9 @@ int main(int argc, char **argv) {
   msg_master.type = 1;
   msg_master.requests = 0;
   /********** END-INIT **********/
-  semSync(sem);
+  if (semSyncSource(sem) < 0)
+    kill(getppid(), SIGUSR2);
+
   logmsg("Going into execution cycle", DB);
   while (1) {
     nanosleep(&msgInterval, NULL);
@@ -106,14 +108,15 @@ int main(int argc, char **argv) {
           msg.destination.y >= 0 && msg.destination.y < SO_HEIGHT) {
         semWait(msg.destination, mutex);
         *readers++;
-        if(*readers == 1)
+        if (*readers == 1)
           semWait(msg.destination, writers);
         semSignal(msg.destination, mutex);
         found = isFree(mapptr, msg.destination);
         semWait(msg.destination, mutex);
         *readers--;
-        if(*readers == 0)
+        if (*readers == 0)
           semSignal(msg.destination, writers);
+        semSignal(msg.destination, mutex);
       }
     }
     logmsg("Sending message:", DB);
@@ -125,6 +128,15 @@ int main(int argc, char **argv) {
     msg_master.requests++;
     found = 0;
   }
+}
+
+void unblock(int sem) {
+  struct sembuf buf;
+  buf.sem_num = 0;
+  buf.sem_op = -1;
+  buf.sem_flg = 0;
+  if (semop(sem, &buf, 1) < 0)
+    EXIT_ON_ERROR
 }
 
 void logmsg(char *message, enum Level l) {
@@ -145,6 +157,17 @@ void handler(int sig) {
     logmsg("Graceful exit successful", DB);
     exit(0);
   case SIGUSR1:
-    break;
+    logmsg("Received SIGUSR1", DB);
+    return;
   }
+}
+int semSyncSource(int sem) {
+  struct sembuf buf;
+  buf.sem_num = 0;
+  buf.sem_op = 0;
+  buf.sem_flg = IPC_NOWAIT;
+  if (semop(sem, &buf, 1) < 0)
+    return -1;
+  else
+    return 0;
 }
