@@ -28,6 +28,8 @@ int main(int argc, char **argv) {
   sigaction(SIGUSR1, &act, 0);
   sigaction(SIGUSR2, &act, 0);
   sigaction(SIGQUIT, &act, 0);
+  sigaction(SIGTSTP, &act, 0);
+  
   if ((key = ftok("./makefile", 'm')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -119,25 +121,6 @@ int main(int argc, char **argv) {
   }
   sem_arg.val = 1;
   if (semctl(sem, 0, SETVAL, sem_arg) < 0) {
-    printf("semctl error\n");
-    EXIT_ON_ERROR
-  }
-
-/*trovare un modo per calcoalre il numero di sorgenti per poi creare i semafori*/
-
-  if ((key = ftok("./makefile", 'k')) < 0) {
-    printf("ftok error\n");
-    EXIT_ON_ERROR
-  }
-  if ((semSource = semget(key, SO_WIDTH * SO_HEIGHT , IPC_CREAT | 0666)) < 0) {
-    printf("semget error\n");
-    EXIT_ON_ERROR
-  }
-  sem_arg1.buf = &source_ds;
-  for (cnt = 0; cnt < SO_WIDTH * SO_HEIGHT; cnt++)
-    semval[cnt] = 1;
-  sem_arg1.array = semval;
-  if (semctl(semSource, 0, SETALL, sem_arg1) < 0) {
     printf("semctl error\n");
     EXIT_ON_ERROR
   }
@@ -459,5 +442,7 @@ void handler(int sig) {
     break;
   case SIGUSR2:
     break;
+ case SIGTSTP:
+ 	break;
   }
 }
