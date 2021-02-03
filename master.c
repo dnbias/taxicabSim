@@ -31,6 +31,8 @@ void handler(int sig) {
     printMap(mapptr);
     alarm(1);
     break;
+  case SIGQUIT:
+    break;
   case SIGUSR1:
     break;
   case SIGUSR2:
@@ -98,6 +100,7 @@ int main() {
 
   sigaction(SIGINT, &act, 0);
   sigaction(SIGALRM, &act, 0);
+  sigaction(SIGQUIT, &act, 0);
   sigaction(SIGUSR1, &act, 0);
   sigaction(SIGUSR2, &act, 0);
 
@@ -162,11 +165,11 @@ int main() {
   sleep(1);
   msgctl(source_qid, IPC_STAT, &q_ds);
   while (q_ds.msg_qnum > 0) {
-    if (msgrcv(source_qid, &msg_source, sizeof(int), 0, IPC_NOWAIT) == -1) {
+    if (msgrcv(source_qid, &buffer, sizeof(int), 0, IPC_NOWAIT) == -1) {
       perror("msgrcv");
       EXIT_ON_ERROR
     }
-    simData.requests += msg_source.requests;
+    simData.requests += buffer;
     msgctl(source_qid, IPC_STAT, &q_ds);
   }
   msgctl(qid, IPC_STAT, &q_ds);

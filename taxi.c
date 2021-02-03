@@ -23,6 +23,7 @@ int main(int argc, char **argv) {
 
   sigaction(SIGINT, &act, 0);
   sigaction(SIGALRM, &act, 0);
+  sigaction(SIGQUIT, &act, 0);
   sigaction(SIGUSR1, &act, 0);
   sigaction(SIGUSR2, &act, 0);
 
@@ -139,15 +140,12 @@ int main(int argc, char **argv) {
     logmsg("Going to Nearest Source", DB);
     moveTo(getNearSource(&source_id));
     received = 0;
-    logmsg("Listening for call on:", DB);
-    printf("(%d,%d)\n", position.x, position.y);
+
     while (!received) {
-      if (msgrcv(qid, &msg, sizeof(Point), source_id, IPC_NOWAIT) == -1) {
-        checkTimeout();
-        logmsg("Timeout passd", DB);
-      } else {
-        received = 1;
-      }
+      logmsg("Listening for call on:", DB);
+      printf("Source[%d](%d,%d)\n", source_id, position.x, position.y);
+      msgrcv(qid, &msg, sizeof(Point), source_id, 0);
+      received = 1;
     }
     data_msg.data.clients++;
     logmsg("Going to destination", DB);
@@ -167,6 +165,7 @@ void moveTo(Point dest) { /*pathfinding*/
     printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
   oldDistance = data_msg.data.distance;
   gettimeofday(&start, NULL);
+  gettimeofday(&timer, NULL);
   while (position.x != dest.x || position.y != dest.y) {
     checkTimeout();
     logmsg("Timeout passed", DB);
@@ -263,13 +262,17 @@ void moveTo(Point dest) { /*pathfinding*/
             break;
           case 2:
             temp.x--;
+            temp.y++;
+          case 3:
+            temp.x = temp.x + 2;
+            i = 0;
             break;
           }
         }
       }
     } else if (dirX >= 0 && dirY <= 0) {
       temp.x++;
-      for (i = 0; i < 3 && !found; i++) {
+      for (i = 0; i < 4 && !found; i++) {
         checkTimeout();
         logmsg("Timeout passed", DB);
         switch (canTransit(temp)) {
@@ -290,13 +293,18 @@ void moveTo(Point dest) { /*pathfinding*/
             temp.y = temp.y + 2;
             break;
           case 2:
+            temp.y--;
             temp.x--;
+            break;
+          case 3:
+            temp.x = temp.x + 2;
+            i = 0;
             break;
           }
         }
       }
     } else if (dirX <= 0 && dirY >= 0) {
-      temp.x--;
+      temp.y++;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
         logmsg("Timeout passed", DB);
@@ -311,20 +319,25 @@ void moveTo(Point dest) { /*pathfinding*/
         case 0:
           switch (i) {
           case 0:
-            temp.x++;
-            temp.y++;
+            temp.x--;
+            temp.y--;
             break;
           case 1:
-            temp.y = temp.y - 2;
+            temp.x = temp.x + 2;
             break;
           case 2:
-            temp.x++;
+            temp.x--;
+            temp.y--;
+            break;
+          case 3:
+            temp.y = temp.y + 2;
+            i = 0;
             break;
           }
         }
       }
     } else if (dirX <= 0 && dirY <= 0) {
-      temp.x--;
+      temp.y--;
       for (i = 0; i < 3 && !found; i++) {
         checkTimeout();
         logmsg("Timeout passed", DB);
@@ -339,14 +352,19 @@ void moveTo(Point dest) { /*pathfinding*/
         case 0:
           switch (i) {
           case 0:
-            temp.x++;
-            temp.y--;
+            temp.y++;
+            temp.x--;
             break;
           case 1:
-            temp.y = temp.y + 2;
+            temp.x = temp.x + 2;
             break;
           case 2:
-            temp.x++;
+            temp.x--;
+            temp.y++;
+            break;
+          case 3:
+            temp.y = temp.y - 2;
+            i = 0;
             break;
           }
         }
@@ -450,7 +468,7 @@ void checkTimeout() {
   n = s * 1000 + u / 10 ^ 3;
   if (n >= timeout) {
     logmsg("Timedout", RUNTIME);
-    raise(SIGQUIT);
+    kill(getpid(), SIGQUIT);
   } else
     return;
 }
@@ -474,12 +492,27 @@ void handler(int sig) {
     exit(0);
   case SIGQUIT:
     logmsg("SIGQUIT", RUNTIME);
-    kill(getppid(), SIGQUIT);
     data_msg.data.abort++;
-    raise(SIGINT);
+    logmsg("Finishing up", DB);
+    shmdt(mapptr);
+    shmdt(sourcesList_ptr);
+    shmdt(readers);
+    msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
+    logmsg("Graceful exit successful", DB);
+    printf("\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
+           "clients: %i, tripsSuccess: %i, abort: %i;\n\n",
+           data_msg.type, data_msg.data.distance,
+           data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
+           data_msg.data.clients, data_msg.data.tripsSuccess,
+           data_msg.data.abort);
+    kill(getppid(), SIGUSR1);
+    exit(0);
+    break;
   case SIGUSR1:
     logmsg("Received SIGUSR1", DB);
-    return;
+    break;
+  case SIGUSR2:
+    break;
   }
 }
 
