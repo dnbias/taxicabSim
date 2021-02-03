@@ -38,6 +38,8 @@ void handler(int sig) {
   case SIGUSR2:
     executing = 0;
     break;
+  case SIGTSTP:
+  	break;
   }
 }
 
@@ -103,6 +105,7 @@ int main() {
   sigaction(SIGQUIT, &act, 0);
   sigaction(SIGUSR1, &act, 0);
   sigaction(SIGUSR2, &act, 0);
+  sigaction(SIGTSTP, &act, 0);
 
   if ((shmkey = ftok("./makefile", 'm')) < 0) {
     EXIT_ON_ERROR

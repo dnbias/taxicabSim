@@ -26,6 +26,7 @@ int main(int argc, char **argv) {
   sigaction(SIGQUIT, &act, 0);
   sigaction(SIGUSR1, &act, 0);
   sigaction(SIGUSR2, &act, 0);
+  sigaction(SIGTSTP, &act, 0);
 
   /* Shared Memory */
   if ((shmkey = ftok("./makefile", 'b')) < 0) {
@@ -97,16 +98,6 @@ int main(int argc, char **argv) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
-
-  if ((key = ftok("./makefile", 'k')) < 0) {
-    printf("ftok error\n");
-    EXIT_ON_ERROR
-  }
-  if ((semSource = semget(key, 0, 0666)) < 0) {
-    printf("semget error\n");
-    EXIT_ON_ERROR
-  }
-
   semSync(sem);
   /*  queue for comunication with sources */
   if ((qkey = ftok("./makefile", 'q')) < 0) {
@@ -433,26 +424,14 @@ void logmsg(char *message, enum Level l) {
 
 Point getNearSource(int *source_id) {
   Point s;
-  int x, n, temp, d = INT_MAX;
+  int n, temp, d = INT_MAX;
   for (n = 0; n < n_sources; n++) {
     temp = abs(position.x - (*sourcesList_ptr)[n].x) +
            abs(position.y - (*sourcesList_ptr)[n].y);
     if (d > temp) {
-      x = n;
       d = temp;
       s = (*sourcesList_ptr)[n];
       *source_id = n + 1;
-    }
-  }
-  return s;
-}
-
-int nSource(int *source_id) {
-  int s, n;
-  for (n = 0; n < MAX_SOURCES; n++) {
-    if (position.x == (*sourcesList_ptr)[n].x &&
-        position.y == (*sourcesList_ptr)[n].y) {
-      s = n;
     }
   }
   return s;
@@ -482,8 +461,8 @@ void handler(int sig) {
     shmdt(readers);
     msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
     logmsg("Graceful exit successful", DB);
-    printf("\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
-           "clients: %i, tripsSuccess: %i, abort: %i;\n\n",
+    printf(ANSI_COLOR_MAGENTA "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
+           "clients: %i, tripsSuccess: %i, abort: %i;\n\n" ANSI_COLOR_RESET,
            data_msg.type, data_msg.data.distance,
            data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
            data_msg.data.clients, data_msg.data.tripsSuccess,
@@ -511,24 +490,10 @@ void handler(int sig) {
   case SIGUSR1:
     logmsg("Received SIGUSR1", DB);
     break;
+  case SIGSTOP:
+    break;
   case SIGUSR2:
     break;
   }
 }
 
-int sourceFree(int n) {
-  struct sembuf buf;
-  buf.sem_num = n;
-  buf.sem_op = -1;
-  buf.sem_flg = IPC_NOWAIT;
-  return semop(semSource, &buf, 1);
-}
-void sourceSetFree(int n) {
-  struct sembuf buf;
-  buf.sem_num = n;
-  buf.sem_op = 1;
-  buf.sem_flg = 0;
-  if (semop(semSource, &buf, 1) == -1) {
-    EXIT_ON_ERROR
-  }
-}
