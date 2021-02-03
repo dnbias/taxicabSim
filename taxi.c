@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
     logmsg("ERROR shmat - readers", RUNTIME);
     EXIT_ON_ERROR
   }
-
+  logmsg("Shared Memory Init OK", DB);
   /*  queue for comunication with master */
   if ((qkey = ftok("./makefile", 'd')) < 0) {
     EXIT_ON_ERROR
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
   if ((master_qid = msgget(qkey, 0644)) < 0) {
     EXIT_ON_ERROR
   }
-
+  logmsg("Queue Init OK", DB);
   /* Semaphores */
   if ((key = ftok("./makefile", 'y')) < 0) {
     printf("ftok error\n");
@@ -98,7 +98,9 @@ int main(int argc, char **argv) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
+  logmsg("Semaphores Init OK", DB);
   semSync(sem);
+  logmsg("Sync OK", DB);
   /*  queue for comunication with sources */
   if ((qkey = ftok("./makefile", 'q')) < 0) {
     EXIT_ON_ERROR
@@ -125,10 +127,10 @@ int main(int argc, char **argv) {
   logmsg("Init Finished", DB);
   /************END-INIT************/
 
-  gettimeofday(&timer, NULL);
   incTrafficAt(position);
   while (1) {
-    logmsg("Going to Nearest Source", RUNTIME);
+    gettimeofday(&timer, NULL);
+    logmsg("Going to Nearest Source", DB);
     moveTo(getNearSource(&source_id));
     received = 0;
 
@@ -140,7 +142,7 @@ int main(int argc, char **argv) {
       received = 1;
     }
     data_msg.data.clients++;
-    logmsg("Going to destination", RUNTIME);
+    logmsg("Going to destination", DB);
     moveTo(msg.destination);
     data_msg.data.tripsSuccess++;
   }
@@ -381,8 +383,10 @@ void moveTo(Point dest) { /*pathfinding*/
       data_msg.data.maxDistanceInTrip) {
     data_msg.data.maxDistanceInTrip = data_msg.data.distance - oldDistance;
   }
-  logmsg("Arrived in", RUNTIME);
-  printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
+  logmsg("Arrived in", DB);
+  if (DEBUG)
+    printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
+  gettimeofday(&timer, NULL);
 }
 
 int canTransit(Point p) {
@@ -444,10 +448,24 @@ void checkTimeout() {
   gettimeofday(&elapsed, NULL);
   s = elapsed.tv_sec - timer.tv_sec;
   u = elapsed.tv_usec - timer.tv_usec;
-  n = s * 1000 + u / 10 ^ 3;
+  n = s * 1000 + (u / 10 ^ 3);
   if (n >= timeout) {
     logmsg("Timedout", RUNTIME);
-    kill(getpid(), SIGQUIT);
+    data_msg.data.abort++;
+    logmsg("Finishing up", DB);
+    shmdt(mapptr);
+    shmdt(sourcesList_ptr);
+    shmdt(readers);
+    msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
+    logmsg("Graceful exit successful", DB);
+    printf("\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
+           "clients: %i, tripsSuccess: %i, abort: %i;\n\n",
+           data_msg.type, data_msg.data.distance,
+           data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
+           data_msg.data.clients, data_msg.data.tripsSuccess,
+           data_msg.data.abort);
+    kill(getppid(), SIGUSR1);
+    exit(0);
   } else
     return;
 }
@@ -472,21 +490,7 @@ void handler(int sig) {
     exit(0);
   case SIGQUIT:
     logmsg("SIGQUIT", RUNTIME);
-    data_msg.data.abort++;
-    logmsg("Finishing up", DB);
-    shmdt(mapptr);
-    shmdt(sourcesList_ptr);
-    shmdt(readers);
-    msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
-    logmsg("Graceful exit successful", DB);
-    printf("\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
-           "clients: %i, tripsSuccess: %i, abort: %i;\n\n",
-           data_msg.type, data_msg.data.distance,
-           data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
-           data_msg.data.clients, data_msg.data.tripsSuccess,
-           data_msg.data.abort);
-    kill(getppid(), SIGUSR1);
-    exit(0);
+
     break;
   case SIGUSR1:
     logmsg("Received SIGUSR1", DB);
@@ -496,4 +500,5 @@ void handler(int sig) {
   case SIGUSR2:
     break;
   }
+  return;
 }

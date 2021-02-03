@@ -39,7 +39,7 @@ void handler(int sig) {
     executing = 0;
     break;
   case SIGTSTP:
-  	break;
+    break;
   }
 }
 
@@ -156,23 +156,23 @@ int main() {
   }
 
   pause();
-  /*t = time(NULL);
+  t = time(NULL);
   while (executing) {
     if ((time(NULL) - t) >= 1) {
       printMap(mapptr);
       t = time(NULL);
     }
-    }*/
+  }
   while (wait(NULL) > 0) {
   }
   sleep(1);
   msgctl(source_qid, IPC_STAT, &q_ds);
   while (q_ds.msg_qnum > 0) {
-    if (msgrcv(source_qid, &buffer, sizeof(int), 0, IPC_NOWAIT) == -1) {
+    if (msgrcv(source_qid, &msg_source, sizeof(int), 0, IPC_NOWAIT) == -1) {
       perror("msgrcv");
       EXIT_ON_ERROR
     }
-    simData.requests += buffer;
+    simData.requests += msg_source.requests;
     msgctl(source_qid, IPC_STAT, &q_ds);
   }
   msgctl(qid, IPC_STAT, &q_ds);

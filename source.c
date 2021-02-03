@@ -97,8 +97,10 @@ int main(int argc, char **argv) {
   msg_master.type = 1;
   msg_master.requests = 0;
   /********** END-INIT **********/
-  if (semSyncSource(sem) < 0)
+  if (msg.type == 1)
     kill(getppid(), SIGUSR2);
+  else
+    semSyncSource(sem);
 
   logmsg("Going into execution cycle", DB);
   while (1) {
@@ -172,7 +174,7 @@ int semSyncSource(int sem) {
   struct sembuf buf;
   buf.sem_num = 0;
   buf.sem_op = 0;
-  buf.sem_flg = IPC_NOWAIT;
+  buf.sem_flg = 0;
   if (semop(sem, &buf, 1) < 0)
     return -1;
   else

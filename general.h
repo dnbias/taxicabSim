@@ -20,22 +20,22 @@
 #endif
 
 #define SO_WIDTH 30 /* a tempo di compilazione */
-#define SO_HEIGHT 32
+#define SO_HEIGHT 39
 #define MAX_SOURCES SO_WIDTH *SO_HEIGHT
 #define EXIT_ON_ERROR                                                          \
   if (errno) {                                                                 \
     fprintf(stderr, "%d: pid %ld; errno: %d (%s)\n", __LINE__, (long)getpid(), \
             errno, strerror(errno));                                           \
-    kill(0, SIGINT);                                                           \
+    raise(SIGINT);                                                             \
   }
-  
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
+
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_GREEN "\x1b[32m"
+#define ANSI_COLOR_YELLOW "\x1b[33m"
+#define ANSI_COLOR_BLUE "\x1b[34m"
 #define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
+#define ANSI_COLOR_CYAN "\x1b[36m"
+#define ANSI_COLOR_RESET "\x1b[0m"
 
 enum type { FREE, SOURCE, HOLE };
 

@@ -1,10 +1,12 @@
 #include "generator.h"
 #include "general.h"
 #include <signal.h>
+#include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 Config conf;
 int shmid_sources, shmid_map, shmid_ex, shmid_readers, qid, writers, sem, mutex,
-    semSource;
+    semSource, executing = 1;
 Point (*sourcesList_ptr)[MAX_SOURCES];
 Cell (*mapptr)[][SO_HEIGHT];
 int *readers, dead_taxis = 0;
@@ -175,12 +177,11 @@ int main(int argc, char **argv) {
   pause();
   unblock(sem);
   logmsg("Starting Timer now.", DB);
+  printf("\tAlarm in %d seconds\n", conf.SO_DURATION);
   alarm(conf.SO_DURATION);
-  if (kill(0, SIGUSR1) < 0) {
-    EXIT_ON_ERROR
-  }
+  kill(getppid(), SIGUSR1);
   logmsg("Waiting for Children...", DB);
-  while (wait(NULL) > 0) {
+  while (executing) {
     if (dead_taxis > 0) {
       logmsg("Relaunching taxi...", DB);
       for (; dead_taxis > 0; dead_taxis--) {
@@ -189,14 +190,36 @@ int main(int argc, char **argv) {
           EXIT_ON_ERROR
         case 0:
           execTaxi();
+          break;
         }
       }
     }
   }
   while (wait(NULL) > 0) {
   }
+  shmdt(mapptr);
+  shmdt(sourcesList_ptr);
+  shmdt(readers);
+  if (shmctl(shmid_sources, IPC_RMID, NULL)) {
+    printf("\nError in shmctl: sources,\n");
+  }
+  if (shmctl(shmid_readers, IPC_RMID, NULL)) {
+    printf("\nError in shmctl: readers,\n");
+  }
+  if (semctl(writers, 0, IPC_RMID)) {
+    printf("\nError in shmctl: writers,\n");
+  }
+  if (semctl(sem, 0, IPC_RMID)) {
+    printf("\nError in semctl: sem,\n");
+  }
+  if (semctl(mutex, 0, IPC_RMID)) {
+    printf("\nError in semctl: mutex,\n");
+  }
+  logmsg("Graceful exit successful", DB);
+  if (kill(0, SIGUSR2) < 0) {
+  }
 
-  kill(0, SIGINT);
+  exit(0);
 }
 
 void unblock(int sem) {
@@ -360,19 +383,25 @@ void logmsg(char *message, enum Level l) {
 
 void execTaxi() {
   Point p;
-  int x, y, found = 0;
+  int x, y, found = 0, startTime;
   char argX[5], argY[5], argMin[5], argMax[5], argTime[5], argSources[5],
       *args[8], *envp[1];
   args[0] = "taxi";
   srand(time(NULL) ^ (getpid() << 16));
-
+  startTime = time(NULL);
   while (found != 1) {
+    if (time(NULL) - startTime > 2) {
+      printf("[generator] Cannot fit taxi\n");
+      exit(0);
+    }
     x = (rand() % SO_WIDTH);
     y = (rand() % SO_HEIGHT);
     if (x >= 0 && x < SO_WIDTH && y >= 0 && y < SO_HEIGHT) {
       p.x = x;
       p.y = y;
-      if ((*mapptr)[p.x][p.y].state != HOLE)
+
+      if ((*mapptr)[p.x][p.y].state != HOLE &&
+          ((*mapptr)[p.x][p.y].traffic < (*mapptr)[p.x][p.y].capacity))
         found = 1;
     }
   }
@@ -408,50 +437,20 @@ void handler(int sig) {
   switch (sig) {
   case SIGINT:
     printf("=============== Received SIGINT ==============\n");
-    shmdt(mapptr);
-    shmdt(sourcesList_ptr);
-    shmdt(readers);
-    if (shmctl(shmid_sources, IPC_RMID, NULL)) {
-      printf("\nError in shmctl: sources,\n");
-    }
-    if (shmctl(shmid_readers, IPC_RMID, NULL)) {
-      printf("\nError in shmctl: readers,\n");
-    }
-    if (semctl(writers, 0, IPC_RMID)) {
-      printf("\nError in shmctl: writers,\n");
-    }
-    if (semctl(sem, 0, IPC_RMID)) {
-      printf("\nError in semctl: sem,\n");
-    }
-    if (semctl(mutex, 0, IPC_RMID)) {
-      printf("\nError in semctl: mutex,\n");
-    }
-    logmsg("Graceful exit successful", DB);
-    if (kill(0, SIGUSR2) < 0) {
-    }
-    exit(0);
+    executing = 0;
     break;
   case SIGALRM:
     kill(0, SIGINT);
     break;
   case SIGQUIT:
     logmsg("Received SIGQUIT", DB);
-    switch (fork()) {
-    case -1:
-      logmsg("fork fail", DB);
-      EXIT_ON_ERROR
-    case 0:
-      logmsg("fork success", DB);
-      execTaxi();
-      break;
-    }
-    logmsg("exiting SIGQUIT", DB);
     break;
   case SIGUSR1:
     logmsg("Received SIGUSR1", DB);
     dead_taxis++;
     break;
   case SIGUSR2:
+    logmsg("Received SIGUSR2", DB);
     break;
   case SIGTSTP:
     break;
