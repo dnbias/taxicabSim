@@ -19,8 +19,8 @@
 #define DEBUG 0
 #endif
 
-#define SO_WIDTH 50 /* a tempo di compilazione */
-#define SO_HEIGHT 50
+#define SO_WIDTH 60 /* a tempo di compilazione */
+#define SO_HEIGHT 20
 #define MAX_SOURCES SO_WIDTH *SO_HEIGHT
 #define EXIT_ON_ERROR                                                          \
   if (errno) {                                                                 \

@@ -10,13 +10,13 @@ void printMap(Cell (*map)[][SO_HEIGHT]) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
       case FREE:
-        printf("[%2d]", (*map)[x][y].traffic);
+        printf("[%d]", (*map)[x][y].traffic);
         break;
       case SOURCE:
-        printf("[So]");
+        printf("[S]");
         break;
       case HOLE:
-        printf("[##]");
+        printf("[#]");
       }
     }
     printf("\n");
