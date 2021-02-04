@@ -19,8 +19,8 @@
 #define DEBUG 0
 #endif
 
-#define SO_WIDTH 7 /* a tempo di compilazione */
-#define SO_HEIGHT 31
+#define SO_WIDTH 50 /* a tempo di compilazione */
+#define SO_HEIGHT 50
 #define MAX_SOURCES SO_WIDTH *SO_HEIGHT
 #define EXIT_ON_ERROR                                                          \
   if (errno) {                                                                 \
@@ -39,7 +39,7 @@
 
 enum type { FREE, SOURCE, HOLE };
 
-enum Level { RUNTIME, DB };
+enum Level { RUNTIME, DB, SILENCE };
 
 typedef struct {
   enum type state;

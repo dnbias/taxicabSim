@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
         printf("Source[%d](%d,%d)\n", source_id, position.x, position.y);
       if (msgrcv(qid, &msg, sizeof(Point), source_id, 0) < 0) {
         checkTimeout();
-        logmsg("Timeout passed, waiting for message", DB);
+        logmsg("Timeout passed, waiting for message", SILENCE);
       } else
         received = 1;
     }
@@ -157,8 +157,8 @@ void moveTo(Point dest) { /*pathfinding*/
   struct timespec transit;
   struct timeval start, end;
   Point temp, oldPos;
-  logmsg("Moving to destination:", DB);
-  if (DEBUG)
+  logmsg("Moving to destination:", SILENCE);
+  if (0)
     printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
   oldDistance = data_msg.data.distance;
   gettimeofday(&start, NULL);
@@ -167,26 +167,25 @@ void moveTo(Point dest) { /*pathfinding*/
   oldPos.y = position.y;
   while (position.x != dest.x || position.y != dest.y) {
     checkTimeout();
-    logmsg("Timeout passed", DB);
     t2 = 0;
 
-    if (DEBUG)
+    if (0)
       printf("[taxi-%d] pos: (%d,%d)\n", getpid(), position.x, position.y);
-    if (DEBUG)
+    if (0)
       printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
     dirX = dest.x - position.x;
     dirY = dest.y - position.y;
     temp.x = position.x;
     temp.y = position.y;
     found = 0;
-    if (DEBUG)
+    if (0)
       printf("[taxi-%d] DirX: %d DirY %d\n", getpid(), dirX, dirY);
     if (abs(dirX + dirY) == 1) {
       incTrafficAt(dest);
       decTrafficAt(position);
       position.x = dest.x;
       position.y = dest.y;
-      if (DEBUG)
+      if (0)
         printf("[taxi-%d] arrived at: (%d,%d)\n", getpid(), dest.x, dest.y);
       break;
     }
@@ -270,7 +269,6 @@ void moveTo(Point dest) { /*pathfinding*/
           continue;
         }
         checkTimeout();
-        logmsg("Timeout passed", DB);
         if (oldPos.x == temp.x && oldPos.y == temp.y) {
           temp.x = position.x;
           temp.y = position.y;
@@ -307,7 +305,6 @@ void moveTo(Point dest) { /*pathfinding*/
           continue;
         }
         checkTimeout();
-        logmsg("Timeout passed", DB);
         if (oldPos.x == temp.x && oldPos.y == temp.y) {
           temp.x = position.x;
           temp.y = position.y;
@@ -344,7 +341,6 @@ void moveTo(Point dest) { /*pathfinding*/
           continue;
         }
         checkTimeout();
-        logmsg("Timeout passed", DB);
         if (oldPos.x == temp.x && oldPos.y == temp.y) {
           temp.x = position.x;
           temp.y = position.y;
@@ -381,7 +377,6 @@ void moveTo(Point dest) { /*pathfinding*/
           continue;
         }
         checkTimeout();
-        logmsg("Timeout passed", DB);
         if (oldPos.x == temp.x && oldPos.y == temp.y) {
           temp.x = position.x;
           temp.y = position.y;
@@ -450,7 +445,7 @@ void incTrafficAt(Point p) {
   semWait(p, writers);
   (*mapptr)[p.x][p.y].traffic++;
   semSignal(p, writers);
-  if (DEBUG)
+  if (0)
     printf("[taxi-%d]->(%d,%d)\n", getpid(), p.x, p.y);
 }
 
@@ -486,7 +481,7 @@ Point getNearSource(int *source_id) {
 void checkTimeout() {
   struct timeval elapsed;
   int s, u, n;
-  logmsg("Timeout check", DB);
+  logmsg("Timeout check", SILENCE);
   gettimeofday(&elapsed, NULL);
   s = elapsed.tv_sec - timer.tv_sec;
   u = elapsed.tv_usec - timer.tv_usec;
@@ -495,7 +490,7 @@ void checkTimeout() {
     logmsg("Timedout", DB);
     decTrafficAt(position);
     data_msg.data.abort++;
-    logmsg("Finishing up", DB);
+    logmsg("Finishing up", SILENCE);
     shmdt(mapptr);
     shmdt(sourcesList_ptr);
     shmdt(readers);
@@ -518,24 +513,26 @@ void checkTimeout() {
 void handler(int sig) {
   switch (sig) {
   case SIGINT:
-    logmsg("Finishing up", DB);
+    logmsg("Finishing up", SILENCE);
     decTrafficAt(position);
     shmdt(mapptr);
     shmdt(sourcesList_ptr);
     shmdt(readers);
-    msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
+    msgsnd(master_qid, &data_msg, sizeof(taxiData), IPC_NOWAIT);
     logmsg("Graceful exit successful", DB);
-    printf(ANSI_COLOR_MAGENTA
-           "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
-           "clients: %i, tripsSuccess: %i, abort: %i;\n\n" ANSI_COLOR_RESET,
-           data_msg.type, data_msg.data.distance,
-           data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
-           data_msg.data.clients, data_msg.data.tripsSuccess,
-           data_msg.data.abort);
+    if (DEBUG)
+      printf(
+          ANSI_COLOR_MAGENTA
+          "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
+          "clients: %i, tripsSuccess: %i, abort: %i;\n\n" ANSI_COLOR_RESET,
+          data_msg.type, data_msg.data.distance,
+          data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
+          data_msg.data.clients, data_msg.data.tripsSuccess,
+          data_msg.data.abort);
 
     exit(0);
   case SIGQUIT:
-    logmsg("SIGQUIT", RUNTIME);
+    logmsg("SIGQUIT", DB);
 
     break;
   case SIGUSR1:

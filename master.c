@@ -10,7 +10,7 @@ void printMap(Cell (*map)[][SO_HEIGHT]) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
       case FREE:
-        printf("[%2d]", (*map)[x][y].visits);
+        printf("[%2d]", (*map)[x][y].traffic);
         break;
       case SOURCE:
         printf("[So]");
@@ -28,10 +28,10 @@ void handler(int sig) {
   case SIGINT:
     break;
   case SIGALRM:
-    printMap(mapptr);
-    alarm(1);
+    executing = 0;
     break;
   case SIGQUIT:
+    executing = 0;
     break;
   case SIGUSR1:
     break;
@@ -70,18 +70,19 @@ void updateData(long pid, taxiData *data) {
 }
 
 void printReport() {
-  printf("======== Simulazione conclusa ========\n");
-  printf("Statistiche:\n");
-  printf("\tViaggi:\n");
-  printf("\t\tEseguiti con successo\tInevasi\tAbortiti\n");
-  printf("\t\t%d                   \t%d     \t%d\n", simData.tripsSuccess,
+  printf("========== Simulation Success ==========\n");
+  printf("Statistics:\n");
+  printf("\tTrips:\n");
+  printf("\t   \tSuccessful \tNot Served \tAborts\n");
+  printf("\t   \t%d         \t%d         \t%d\n", simData.tripsSuccess,
          simData.tripsNotServed, (simData.trips - simData.tripsSuccess));
   printf("\tTaxi:\n");
-  printf("\t\tMaggior Strada\tViaggio piu' lungo\tMaggior numero di viaggi\n");
-  printf("\t\t%ld           \t%ld               \t%ld\n",
-         simData.distanceWinner, simData.timeWinner, simData.tripsWinner);
-  printf("\t\t%d            \t%ld               \t%d\n", simData.maxDistance,
-         simData.maxTime.tv_usec, simData.maxTrips);
+  printf("\t\tMost Distance \tLongest Trip \tMost Trips\n");
+  printf("\tpid:\t%ld        \t%ld          \t%ld\n", simData.distanceWinner,
+         simData.timeWinner, simData.tripsWinner);
+  printf("\t    \t%d            \t%ld ms     \t%d\n", simData.maxDistance,
+         (simData.maxTime.tv_sec * 1000 + simData.maxTime.tv_usec / 1000),
+         simData.maxTrips);
 }
 
 int main() {

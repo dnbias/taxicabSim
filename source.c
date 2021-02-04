@@ -1,4 +1,6 @@
 #include "source.h"
+#include "general.h"
+#include <sys/ipc.h>
 MasterMessage msg_master;
 Cell (*mapptr)[][SO_HEIGHT];
 int master_qid, *readers;
@@ -10,7 +12,7 @@ int main(int argc, char **argv) {
   Message msg;
   struct timespec msgInterval;
   struct sigaction act;
-
+  struct msqid_ds ds;
   /********** INIT **********/
   logmsg("Init", DB);
 
@@ -53,7 +55,7 @@ int main(int argc, char **argv) {
   if ((key = ftok("./makefile", 'q')) < 0) {
     EXIT_ON_ERROR
   }
-  if ((qid = msgget(key, IPC_CREAT | 0644)) < 0) {
+  if ((qid = msgget(key, 0644)) < 0) {
     EXIT_ON_ERROR
   }
   /*  queue for comunication with master */
@@ -93,7 +95,7 @@ int main(int argc, char **argv) {
   srand(time(NULL) ^ (getpid() << 16));
   sscanf(argv[1], "%ld", &msg.type);
   msgInterval.tv_sec = 0;
-  msgInterval.tv_nsec = 100;
+  msgInterval.tv_nsec = 100000000;
   msg_master.type = 1;
   msg_master.requests = 0;
   /********** END-INIT **********/
@@ -102,9 +104,9 @@ int main(int argc, char **argv) {
 
   logmsg("Going into execution cycle", DB);
   while (1) {
-    /*nanosleep(&msgInterval, NULL);*/
+    nanosleep(&msgInterval, NULL);
     while (found != 1) {
-      logmsg("Generating message", RUNTIME);
+      logmsg("Generating message", -1);
       msg.destination.x = (rand() % SO_WIDTH);
       msg.destination.y = (rand() % SO_HEIGHT);
       if (msg.destination.x >= 0 && msg.destination.x < SO_WIDTH &&
@@ -122,12 +124,18 @@ int main(int argc, char **argv) {
         unlock(mutex);
       }
     }
-    logmsg("Sending message", RUNTIME);
-    if (DEBUG) {
+    logmsg("Sending message", SILENCE);
+    if (0) {
       printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
              msg.destination.y);
     }
-    msgsnd(qid, &msg, sizeof(Point), 0);
+    if (msgsnd(qid, &msg, sizeof(Point), IPC_NOWAIT) < 0) {
+      logmsg("Queue full, trying again", SILENCE);
+      nanosleep(&msgInterval, NULL);
+      found = 0;
+      continue;
+    }
+
     msg_master.requests++;
     found = 0;
   }
@@ -146,20 +154,19 @@ void handler(int sig) {
   case SIGALRM:
     break;
   case SIGINT:
-    logmsg("Finishing up", DB);
+    logmsg("Finishing up", SILENCE);
     shmdt(mapptr);
     shmdt(readers);
     msgsnd(master_qid, &msg_master, sizeof(int), 0);
     logmsg("Graceful exit successful", DB);
     exit(0);
   case SIGUSR1:
-    logmsg("Received SIGUSR1", DB);
+    logmsg("Received SIGUSR1", RUNTIME);
     break;
   case SIGTSTP:
     logmsg("Received SIGSTOP", RUNTIME);
     userRequest();
     break;
-    return;
   }
 }
 int semSyncSource(int sem) {
@@ -197,11 +204,9 @@ void userRequest() {
     }
     found = 0;
   }
-  logmsg(ANSI_COLOR_RED "Sending message:" ANSI_COLOR_RESET, DB);
-  if (DEBUG) {
-    printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
-           msg.destination.y);
-  }
+  logmsg(ANSI_COLOR_RED "Sending message:" ANSI_COLOR_RESET, RUNTIME);
+  printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
+         msg.destination.y);
   msgsnd(qid, &msg, sizeof(Point), 0);
   msg_master.requests++;
   return;
