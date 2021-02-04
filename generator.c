@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
 
   msgctl(qid, IPC_STAT, &qds);
   if (DEBUG) {
-    printf("\tqueue_size(%d)\n", qds.msg_qbytes);
+    printf("\tqueue_size(%ld)\n", qds.msg_qbytes);
   }
 
   logmsg("Printing map...", DB);
