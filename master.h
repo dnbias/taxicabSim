@@ -12,7 +12,7 @@ typedef struct {
   int abort;
 } taxiData;
 
-typedef struct{
+typedef struct {
   long type;
   int requests;
 } sourceMessage;
@@ -23,6 +23,7 @@ typedef struct {
 } dataMessage;
 
 typedef struct {
+  int topCells;
   int requests;
   int trips;
   int tripsSuccess;

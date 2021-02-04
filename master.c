@@ -5,6 +5,7 @@ int usage[5];
 volatile int executing = 1;
 Data simData;
 
+<<<<<<< HEAD
 
 void cellsData(Cell (*map)[][SO_HEIGHT], int usage[]){
   int x,y,n,cnt, db;
@@ -33,6 +34,24 @@ void cellsData(Cell (*map)[][SO_HEIGHT], int usage[]){
     }
   }
 }
+=======
+/*void cellsData(Cell (*map)[][SO_HEIGHT]){
+  int x,y,n;
+  (*mostUsed)[0].visits = 0;
+  (*mostUsed)[1].visits = 0;
+  (*mostUsed)[2].visits = 0;
+  (*mostUsed)[3].visits = 0;
+  (*mostUsed)[4].visits = 0;
+  for(x = 0; x < SO_WIDTH; x++)
+        for(y = 0; y < SO_HEIGHT; y++)
+          for(n = 0; n < 4; n++)
+                if((*map)[x][y].visits > (*mostUsed)[n].visits){
+                  (*mostUsed)[n+1] = (*mostUsed)[n];
+                  (*mostUsed)[n] = (*mapptr)[x][y];
+                }
+
+}*/
+>>>>>>> ac51007 (Fix)
 
 void printMap(Cell (*map)[][SO_HEIGHT]) {
   int x, y;
@@ -56,6 +75,7 @@ void printMap(Cell (*map)[][SO_HEIGHT]) {
 void handler(int sig) {
   switch (sig) {
   case SIGINT:
+    executing = 0;
     break;
   case SIGALRM:
     executing = 0;
@@ -114,6 +134,7 @@ void printReport(Cell (*map)[][SO_HEIGHT], int usage[]) {
   printf("\t    \t%d            \t%ld ms     \t%d\n", simData.maxDistance,
          (simData.maxTime.tv_sec * 1000 + simData.maxTime.tv_usec / 1000),
          simData.maxTrips);
+<<<<<<< HEAD
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
@@ -132,13 +153,34 @@ void printReport(Cell (*map)[][SO_HEIGHT], int usage[]) {
         break;
       case HOLE:
         printf("[#]");
+=======
+
+  /*  for (y = 0; y < SO_HEIGHT; y++) {
+      for (x = 0; x < SO_WIDTH; x++) {
+        switch ((*mapptr)[x][y].state) {
+        case FREE:
+          for(n = 0; n < 5; n++)
+            if((*mapptr)[x][y].visits == (*mostUsed)[n].visits)
+                  printf(ANSI_COLOR_RED "[%d]" ANSI_COLOR_RESET,
+    (*mapptr)[x][y].visits); else printf("[%d]", (*mapptr)[x][y].visits); break;
+        case SOURCE:
+          printf("[S]");
+          break;
+        case HOLE:
+          printf("[#]");
+        }
+>>>>>>> ac51007 (Fix)
       }
+      printf("\n");
     }
+<<<<<<< HEAD
     printf("\n");
   }
   printf("\n");
+=======
+    printf("\n");*/
+>>>>>>> ac51007 (Fix)
 }
-
 
 int main() {
   char *args[2];
@@ -198,8 +240,8 @@ int main() {
     envp[0] = NULL;
     execve("generator", args, envp);
   }
-
-  pause();
+  msgrcv(source_qid, &msg_source, sizeof(int), 0, 0);
+  simData.topCells = msg_source.requests;
   t = time(NULL);
   while (executing) {
     if ((time(NULL) - t) >= 1) {
