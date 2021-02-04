@@ -180,7 +180,8 @@ int main(int argc, char **argv) {
 
   unblock(sem);
   logmsg("Starting Timer now.", DB);
-  printf("\tAlarm in %d seconds\n", conf.SO_DURATION);
+  if (DEBUG)
+    printf("\tAlarm in %d seconds\n", conf.SO_DURATION);
   alarm(conf.SO_DURATION);
   kill(getppid(), SIGUSR1);
   logmsg("Waiting for Children...", DB);
