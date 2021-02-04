@@ -1,25 +1,32 @@
 #include "master.h"
 
 Cell (*mapptr)[][SO_HEIGHT];
-int usage[5];
 volatile int executing = 1;
 Data simData;
 
-void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
-  int x, y, n, cnt;
-  int usage[5];
+void cellsData(Cell (*map)[][SO_HEIGHT]) {
+  int x, y, n, cnt, tmpI;
+  Point tmp;
+  int usage[simData.topCells];
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_HEIGHT; x++) {
       if ((*map)[x][y].state == FREE) {
-        for (n = 0; n < (SO_TOP_CELLS - 1); n++) {
+        for (n = 0; n < simData.topCells; n++) {
           if ((*map)[x][y].visits > usage[n]) {
-            for (cnt = 0; cnt + n < SO_TOP_CELLS; cnt++) {
-              mostUsedCell_ptr[n + cnt + 1].x = mostUsedCell_ptr[n + cnt].x;
-              mostUsedCell_ptr[cnt + n + 1].y = mostUsedCell_ptr[n + cnt].x;
-              usage[n] = (*map)[x][y].visits;
+            if(n != (simData.topCells-1) && n>0){
+              for (cnt = 0; cnt + n < simData.topCells; cnt++) {
+                simData.cellsWinner[cnt+n].y = tmp.y;
+                simData.cellsWinner[cnt+n].x = tmp.x;
+                tmp.x = simData.cellsWinner[cnt+n+1].x;
+                tmp.y = simData.cellsWinner[cnt+n+1].y;
+                tmpI = usage[cnt+n+1]; 
+             	simData.cellsWinner[cnt+n+1].y = simData.cellsWinner[cnt+n].y;
+                simData.cellsWinner[cnt+n+1].x = simData.cellsWinner[cnt+n].x;
+                usage[cnt+n+1] = usage[cnt+n];
+              }
             }
-            mostUsedCell_ptr[n].x = x;
-            mostUsedCell_ptr[n].y = y;
+            simData.cellsWinner[n].x = x;
+            simData.cellsWinner[n].y = y;
             usage[n] = (*map)[x][y].visits;
             break;
           }
@@ -27,9 +34,9 @@ void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
       }
     }
   }
-  simData.cellWinner.x = mostUsedCell_ptr[0].x;
-  simData.cellWinner.y = mostUsedCell_ptr[0].y;
-  simData.maxVisits = usage[0];
+  for(n = 0; n < simData.topCells; n++){
+    printf("->n: %d x: %d, y: %d, v: %d; |", n,simData.cellsWinner[n].x, simData.cellsWinner[n].y, usage[n]);
+  }
 }
 
 void printMap(Cell (*map)[][SO_HEIGHT]) {
@@ -98,7 +105,7 @@ void updateData(long pid, taxiData *data) {
   }
 }
 
-void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
+void printReport(Cell (*map)[][SO_HEIGHT]) {
   int x, y, n;
   printf("========== Simulation Success ==========\n");
   printf("Statistics:\n");
@@ -113,20 +120,14 @@ void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
   printf("\t    \t%d            \t%ld ms     \t%d\n", simData.maxDistance,
          (simData.maxTime.tv_sec * 1000 + simData.maxTime.tv_usec / 1000),
          simData.maxTrips);
-
-  printf("\t\tMost Visited cell\tvisits\n");
-  printf("\t\t(%d,%d)  \t\t%d\n", simData.cellWinner.x, simData.cellWinner.y,
-         simData.maxVisits);
-
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
       case FREE:
         n = 0;
-        while (n < 5 &&
-               (x != mostUsedCell_ptr[n].x || y != mostUsedCell_ptr[n].y))
+        while (n < simData.topCells && (x != simData.cellsWinner[n].y || y != simData.cellsWinner[n].x))
           n++;
-        if (x == mostUsedCell_ptr[n].x && y == mostUsedCell_ptr[n].y)
+        if (x == simData.cellsWinner[n].x && y == simData.cellsWinner[n].y)
           printf(ANSI_COLOR_RED "[%d]" ANSI_COLOR_RESET, (*map)[x][y].visits);
         else
           printf("[ ]");
@@ -137,6 +138,10 @@ void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
       case HOLE:
         printf("[#]");
       }
+   }
+   printf("\n");
+ }
+}
 
       int main() {
         char *args[2];
@@ -197,7 +202,8 @@ void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
           execve("generator", args, envp);
         }
         msgrcv(source_qid, &msg_source, sizeof(int), 0, 0);
-        simData.topCells = msg_source.requests;
+        simData.topCells = 40/*msg_source.requests*/;
+        simData.cellsWinner[simData.topCells];
         t = time(NULL);
         while (executing) {
           if ((time(NULL) - t) >= 1) {
@@ -228,8 +234,8 @@ void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
           msgctl(qid, IPC_STAT, &q_ds);
         }
         simData.tripsNotServed = simData.requests - simData.trips;
-        cellsData(mapptr, mostUsedCell_ptr);
-        printReport(mapptr, mostUsedCell_ptr);
+        cellsData(mapptr);
+        printReport(mapptr);
 
         if (shmctl(shmid_map, IPC_RMID, NULL)) {
           printf("\nError in shmctl: map,\n");
@@ -246,4 +252,4 @@ void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
 
         logmsg("Quitting", DB);
         exit(0);
-      }
+        }

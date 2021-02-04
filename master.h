@@ -23,7 +23,6 @@ typedef struct {
 } dataMessage;
 
 typedef struct {
-  int topCells;
   int requests;
   int trips;
   int tripsSuccess;
@@ -34,8 +33,8 @@ typedef struct {
   long timeWinner;
   int maxDistance;
   long distanceWinner;
-  int maxVisits;
-  Point cellWinner;
+  int topCells;
+  Point cellsWinner[];
 } Data;
 
 void cellsData();
