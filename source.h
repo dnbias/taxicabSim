@@ -10,9 +10,4 @@ void logmsg(char *, enum Level);
 
 void userRequest();
 
-typedef struct {
-  long type;
-  int requests;
-} MasterMessage;
-
 #endif

@@ -5,7 +5,6 @@ int usage[5];
 volatile int executing = 1;
 Data simData;
 
-
 void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]){
   int x,y,n,cnt;
   int usage[5];
@@ -33,6 +32,7 @@ void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]){
   simData.maxVisits = usage[0];
 }
 
+
 void printMap(Cell (*map)[][SO_HEIGHT]) {
   int x, y;
   for (y = 0; y < SO_HEIGHT; y++) {
@@ -55,6 +55,7 @@ void printMap(Cell (*map)[][SO_HEIGHT]) {
 void handler(int sig) {
   switch (sig) {
   case SIGINT:
+    executing = 0;
     break;
   case SIGALRM:
     executing = 0;
@@ -113,8 +114,10 @@ void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
   printf("\t    \t%d            \t%ld ms     \t%d\n", simData.maxDistance,
          (simData.maxTime.tv_sec * 1000 + simData.maxTime.tv_usec / 1000),
          simData.maxTrips);
+
   printf("\t\tMost Visited cell\tvisits\n");
   printf("\t\t(%d,%d)  \t\t%d\n", simData.cellWinner.x, simData.cellWinner.y, simData.maxVisits);
+
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
@@ -132,13 +135,7 @@ void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
         break;
       case HOLE:
         printf("[#]");
-      }
-    }
-    printf("\n");
-  }
-  printf("\n");
 }
-
 
 int main() {
   char *args[2];
@@ -198,8 +195,8 @@ int main() {
     envp[0] = NULL;
     execve("generator", args, envp);
   }
-
-  pause();
+  msgrcv(source_qid, &msg_source, sizeof(int), 0, 0);
+  simData.topCells = msg_source.requests;
   t = time(NULL);
   while (executing) {
     if ((time(NULL) - t) >= 1) {

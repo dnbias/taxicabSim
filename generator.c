@@ -1,13 +1,13 @@
 #include "generator.h"
 #include "general.h"
-#include <signal.h>
-#include <stdlib.h>
-#include <time.h>
+#include "source.h"
+#include <sys/msg.h>
 #include <unistd.h>
+
 Config conf;
 int shmid_sources, shmid_map, shmid_ex, shmid_readers, qid, writers, sem, mutex,
     semSource, executing = 1;
-Point (*sourcesList_ptr)[MAX_SOURCES];
+Point (*sourcesList_ptr)[];
 Cell (*mapptr)[][SO_HEIGHT];
 int *readers, dead_taxis = 0;
 
@@ -21,6 +21,7 @@ int main(int argc, char **argv) {
   struct semid_ds sem_ds, writers_ds, source_ds;
   struct sembuf buf;
   struct msqid_ds qds;
+  MasterMessage topCells;
   /************ INIT ************/
 
   memset(&act, 0, sizeof(act));
@@ -126,6 +127,8 @@ int main(int argc, char **argv) {
   }
 
   parseConf(&conf);
+  topCells.requests = conf.SO_TOP_CELLS;
+  topCells.type = 2;
 
   if (DEBUG) {
     logmsg("Testing Map:", DB);
@@ -177,7 +180,7 @@ int main(int argc, char **argv) {
       execTaxi();
     }
   }
-
+  msgsnd(qid, &topCells, sizeof(int), 0);
   unblock(sem);
   logmsg("Starting Timer now.", DB);
   if (DEBUG)
@@ -262,6 +265,8 @@ void parseConf(Config *conf) {
         conf->SO_SOURCES = n;
       } else if (strncmp(s, "SO_HOLES", 8) == 0) {
         conf->SO_HOLES = n;
+      } else if (strncmp(s, "SO_TOP_CELLS", 12) == 0) {
+        conf->SO_TOP_CELLS = n;
       } else if (strncmp(s, "SO_CAP_MIN", 10) == 0) {
         conf->SO_CAP_MIN = n;
       } else if (strncmp(s, "SO_CAP_MAX", 10) == 0) {
@@ -309,39 +314,47 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
   int x, y, r, i;
   time_t startTime;
   if (SO_WIDTH <= 0 || SO_HEIGHT <= 0) {
-    logmsg("You must set appropriate SO_WIDTH and SO_HEIGHT:\n\tRetry "
+    logmsg("You must set appropriate SO_WIDTH and SO_HEIGHT:\n\t\tRetry\n"
            "Quitting...",
            RUNTIME);
-    kill(0, SIGQUIT);
+    kill(0, SIGINT);
+  }
+  if (conf->SO_HOLES + conf->SO_SOURCES > SO_HEIGHT * SO_WIDTH) {
+    logmsg("You must set appropriate SO_WIDTH and SO_HEIGHT:\n\t\tRetry\n"
+           "Quitting...",
+           RUNTIME);
+    kill(0, SIGINT);
   }
   startTime = time(NULL);
   for (x = 0; x < SO_WIDTH; x++) {
-    if (time(NULL) - startTime > 2) {
-      logmsg("Could not Geterate Map:\n\tRetry "
-             "with a smaller size. Quitting...",
+    if (time(NULL) - startTime > 4) {
+      logmsg("Could not Geterate Map:\n\t\tRetry "
+             "with a smaller size.\nQuitting...",
              RUNTIME);
-      kill(0, SIGQUIT);
+      kill(0, SIGINT);
     }
     for (y = 0; y < SO_HEIGHT; y++) {
       (*matrix)[x][y].state = FREE;
       (*matrix)[x][y].traffic = 0;
       (*matrix)[x][y].visits = 0;
       r = rand();
-      (*matrix)[x][y].capacity =
-          (r % (conf->SO_CAP_MAX - conf->SO_CAP_MIN)) + conf->SO_CAP_MIN;
+      if (conf->SO_CAP_MAX == conf->SO_CAP_MIN)
+        (*matrix)[x][y].capacity = conf->SO_CAP_MIN;
+      else
+        (*matrix)[x][y].capacity =
+            (r % (conf->SO_CAP_MAX - conf->SO_CAP_MIN)) + conf->SO_CAP_MIN;
     }
   }
   startTime = time(NULL); /* To stop the user from using too many holes */
   for (i = conf->SO_HOLES; i > 0; i--) {
     if (time(NULL) - startTime > 2) {
-      logmsg("You selected too many holes to fit the map:\n\tRetry "
-             "with less. Quitting...",
+      logmsg("You selected too many holes to fit the map:\n\t\tRetry "
+             "with less.\nQuitting...",
              RUNTIME);
-      kill(0, SIGQUIT);
+      kill(0, SIGINT);
     }
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
-
     if (checkNoAdiacentHoles(matrix, x, y) == 0) {
       (*matrix)[x][y].state = HOLE;
     } else {
@@ -349,23 +362,33 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
     }
   }
   startTime = time(NULL); /* To stop the user from using too many sources */
-  logmsg("Generating Sources...", DB);
   for (i = 0; i < conf->SO_SOURCES; i++) {
-    if (time(NULL) - startTime > 2) {
-      logmsg("It seems you selected too many sources to fit the map:/n/tRetry "
-             "with less. Quitting...",
-             RUNTIME);
-      kill(0, SIGQUIT);
-    }
-    x = rand() % SO_WIDTH;
-    y = rand() % SO_HEIGHT;
-
-    if ((*matrix)[x][y].state == FREE) {
-      (*matrix)[x][y].state = SOURCE;
-      (*sourcesList_ptr)[i].x = x;
-      (*sourcesList_ptr)[i].y = y;
+    if (time(NULL) - startTime > 1) {
+      for (x = 0; x < SO_WIDTH; x++) {
+        for (y = 0; y < SO_HEIGHT; y++) {
+          if ((*matrix)[x][y].state != HOLE)
+            (*matrix)[x][y].state = SOURCE;
+          else
+            i--;
+          if (time(NULL) - startTime > 3) {
+            logmsg("It seems you selected too many sources to fit the "
+                   "map:\n\t\tRetry "
+                   "with less.\nQuitting...",
+                   RUNTIME);
+            kill(0, SIGINT);
+          }
+        }
+      }
     } else {
-      i--;
+      x = rand() % SO_WIDTH;
+      y = rand() % SO_HEIGHT;
+      if ((*matrix)[x][y].state == FREE) {
+        (*matrix)[x][y].state = SOURCE;
+        (*sourcesList_ptr)[i].x = x;
+        (*sourcesList_ptr)[i].y = y;
+      } else {
+        i--;
+      }
     }
   }
 }
@@ -410,9 +433,8 @@ void execTaxi() {
   srand(time(NULL) ^ (getpid() << 16));
   startTime = time(NULL);
   while (found != 1) {
-    if (time(NULL) - startTime > 2) {
-      printf("[generator] Cannot fit taxi\n");
-      kill(0, SIGQUIT);
+    if (time(NULL) - startTime > 3) {
+      exit(0);
     }
     x = (rand() % SO_WIDTH);
     y = (rand() % SO_HEIGHT);

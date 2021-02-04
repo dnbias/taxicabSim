@@ -21,7 +21,6 @@
 
 #define SO_WIDTH 60 /* a tempo di compilazione */
 #define SO_HEIGHT 20
-#define MAX_SOURCES SO_WIDTH *SO_HEIGHT
 #define EXIT_ON_ERROR                                                          \
   if (errno) {                                                                 \
     fprintf(stderr, "%d: pid %ld; errno: %d (%s)\n", __LINE__, (long)getpid(), \
@@ -49,8 +48,8 @@ typedef struct {
 } Cell;
 
 typedef struct {
-  int SO_TAXI, SO_SOURCES, SO_HOLES, SO_CAP_MIN, SO_CAP_MAX, SO_TIMENSEC_MIN,
-      SO_TIMENSEC_MAX, SO_TIMEOUT, SO_DURATION;
+  int SO_TAXI, SO_SOURCES, SO_HOLES, SO_TOP_CELLS, SO_CAP_MIN, SO_CAP_MAX,
+      SO_TIMENSEC_MIN, SO_TIMENSEC_MAX, SO_TIMEOUT, SO_DURATION;
 } Config;
 
 typedef struct {
@@ -61,6 +60,11 @@ typedef struct {
   long type;
   Point destination;
 } Message;
+
+typedef struct {
+  long type;
+  int requests;
+} MasterMessage;
 
 int isFree(Cell (*map)[][SO_HEIGHT], Point p);
 

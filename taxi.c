@@ -1,7 +1,7 @@
 #include "taxi.h"
 int shmid, source_id, master_qid, writers, mutex, sem, semSource;
 Cell (*mapptr)[][SO_HEIGHT];
-Point (*sourcesList_ptr)[MAX_SOURCES];
+Point (*sourcesList_ptr)[];
 int *readers;
 Point position;
 int qid, timensec_min, timensec_max, timeout, n_sources;
@@ -489,7 +489,7 @@ void checkTimeout() {
   n = s * 1000 + (u / 10 ^ 3);
   if (n >= timeout) {
     logmsg("Timedout", DB);
-    decTrafficAt(position);
+    (*mapptr)[position.x][position.y].traffic--;
     data_msg.data.abort++;
     logmsg("Finishing up", SILENCE);
     shmdt(mapptr);
@@ -515,7 +515,7 @@ void handler(int sig) {
   switch (sig) {
   case SIGINT:
     logmsg("Finishing up", SILENCE);
-    decTrafficAt(position);
+    (*mapptr)[position.x][position.y].traffic--;
     shmdt(mapptr);
     shmdt(sourcesList_ptr);
     shmdt(readers);

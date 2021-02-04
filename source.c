@@ -1,6 +1,6 @@
 #include "source.h"
 #include "general.h"
-#include <sys/ipc.h>
+
 MasterMessage msg_master;
 Cell (*mapptr)[][SO_HEIGHT];
 int master_qid, *readers;
@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
   srand(time(NULL) ^ (getpid() << 16));
   sscanf(argv[1], "%ld", &msg.type);
   msgInterval.tv_sec = 0;
-  msgInterval.tv_nsec = 100000000;
+  msgInterval.tv_nsec = 1000000;
   msg_master.type = 1;
   msg_master.requests = 0;
   /********** END-INIT **********/
