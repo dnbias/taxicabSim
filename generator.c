@@ -199,7 +199,7 @@ int main(int argc, char **argv) {
       }
     }
   }
-
+  kill(0, SIGALRM);
   while (wait(NULL) > 0) {
   }
   shmdt(mapptr);

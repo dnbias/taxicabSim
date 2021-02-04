@@ -152,6 +152,7 @@ void logmsg(char *message, enum Level l) {
 void handler(int sig) {
   switch (sig) {
   case SIGALRM:
+    raise(SIGINT);
     break;
   case SIGINT:
     logmsg("Finishing up", SILENCE);

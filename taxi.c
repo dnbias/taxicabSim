@@ -529,11 +529,12 @@ void handler(int sig) {
           data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
           data_msg.data.clients, data_msg.data.tripsSuccess,
           data_msg.data.abort);
-
     exit(0);
   case SIGQUIT:
     logmsg("SIGQUIT", DB);
-
+    break;
+  case SIGALRM:
+    raise(SIGINT);
     break;
   case SIGUSR1:
     logmsg("Received SIGUSR1", DB);
@@ -544,5 +545,4 @@ void handler(int sig) {
     logmsg("Received SIGUSR2", DB);
     break;
   }
-  return;
 }
