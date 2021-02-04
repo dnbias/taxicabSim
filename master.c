@@ -5,7 +5,6 @@ int usage[5];
 volatile int executing = 1;
 Data simData;
 
-<<<<<<< HEAD
 void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
   int x, y, n, cnt;
   int usage[5];
@@ -32,25 +31,6 @@ void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
   simData.cellWinner.y = mostUsedCell_ptr[0].y;
   simData.maxVisits = usage[0];
 }
-
-=======
-/*void cellsData(Cell (*map)[][SO_HEIGHT]){
-  int x,y,n;
-  (*mostUsed)[0].visits = 0;
-  (*mostUsed)[1].visits = 0;
-  (*mostUsed)[2].visits = 0;
-  (*mostUsed)[3].visits = 0;
-  (*mostUsed)[4].visits = 0;
-  for(x = 0; x < SO_WIDTH; x++)
-        for(y = 0; y < SO_HEIGHT; y++)
-          for(n = 0; n < 4; n++)
-                if((*map)[x][y].visits > (*mostUsed)[n].visits){
-                  (*mostUsed)[n+1] = (*mostUsed)[n];
-                  (*mostUsed)[n] = (*mapptr)[x][y];
-                }
-
-}*/
->>>>>>> ac51007 (Fix)
 
 void printMap(Cell (*map)[][SO_HEIGHT]) {
   int x, y;
