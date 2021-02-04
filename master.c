@@ -5,25 +5,26 @@ int usage[5];
 volatile int executing = 1;
 Data simData;
 
-void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]){
-  int x,y,n,cnt;
+<<<<<<< HEAD
+void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
+  int x, y, n, cnt;
   int usage[5];
-  for (y = 0; y < SO_HEIGHT; y++){
-    for (x = 0; x < SO_HEIGHT; x++){
-      if((*map)[x][y].state == FREE){
-         for(n = 0; n < (SO_TOP_CELLS-1); n++){
-            if((*map)[x][y].visits > usage[n]){
-              for(cnt=0; cnt+n< SO_TOP_CELLS; cnt++){
-                mostUsedCell_ptr[n+cnt+1].x = mostUsedCell_ptr[n+cnt].x;
-                mostUsedCell_ptr[cnt+n+1].y = mostUsedCell_ptr[n+cnt].x;
-                usage[n] = (*map)[x][y].visits;
-              }
-              mostUsedCell_ptr[n].x = x;
-              mostUsedCell_ptr[n].y = y;
+  for (y = 0; y < SO_HEIGHT; y++) {
+    for (x = 0; x < SO_HEIGHT; x++) {
+      if ((*map)[x][y].state == FREE) {
+        for (n = 0; n < (SO_TOP_CELLS - 1); n++) {
+          if ((*map)[x][y].visits > usage[n]) {
+            for (cnt = 0; cnt + n < SO_TOP_CELLS; cnt++) {
+              mostUsedCell_ptr[n + cnt + 1].x = mostUsedCell_ptr[n + cnt].x;
+              mostUsedCell_ptr[cnt + n + 1].y = mostUsedCell_ptr[n + cnt].x;
               usage[n] = (*map)[x][y].visits;
-              break;
-             }
-         }
+            }
+            mostUsedCell_ptr[n].x = x;
+            mostUsedCell_ptr[n].y = y;
+            usage[n] = (*map)[x][y].visits;
+            break;
+          }
+        }
       }
     }
   }
@@ -32,6 +33,24 @@ void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]){
   simData.maxVisits = usage[0];
 }
 
+=======
+/*void cellsData(Cell (*map)[][SO_HEIGHT]){
+  int x,y,n;
+  (*mostUsed)[0].visits = 0;
+  (*mostUsed)[1].visits = 0;
+  (*mostUsed)[2].visits = 0;
+  (*mostUsed)[3].visits = 0;
+  (*mostUsed)[4].visits = 0;
+  for(x = 0; x < SO_WIDTH; x++)
+        for(y = 0; y < SO_HEIGHT; y++)
+          for(n = 0; n < 4; n++)
+                if((*map)[x][y].visits > (*mostUsed)[n].visits){
+                  (*mostUsed)[n+1] = (*mostUsed)[n];
+                  (*mostUsed)[n] = (*mapptr)[x][y];
+                }
+
+}*/
+>>>>>>> ac51007 (Fix)
 
 void printMap(Cell (*map)[][SO_HEIGHT]) {
   int x, y;
@@ -100,7 +119,7 @@ void updateData(long pid, taxiData *data) {
 }
 
 void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
-  int x,y,n;
+  int x, y, n;
   printf("========== Simulation Success ==========\n");
   printf("Statistics:\n");
   printf("\tTrips:\n");
@@ -116,16 +135,18 @@ void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
          simData.maxTrips);
 
   printf("\t\tMost Visited cell\tvisits\n");
-  printf("\t\t(%d,%d)  \t\t%d\n", simData.cellWinner.x, simData.cellWinner.y, simData.maxVisits);
+  printf("\t\t(%d,%d)  \t\t%d\n", simData.cellWinner.x, simData.cellWinner.y,
+         simData.maxVisits);
 
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
       case FREE:
         n = 0;
-        while(n < 5 && (x!=mostUsedCell_ptr[n].x || y!=mostUsedCell_ptr[n].y))
+        while (n < 5 &&
+               (x != mostUsedCell_ptr[n].x || y != mostUsedCell_ptr[n].y))
           n++;
-        if(x == mostUsedCell_ptr[n].x && y == mostUsedCell_ptr[n].y)
+        if (x == mostUsedCell_ptr[n].x && y == mostUsedCell_ptr[n].y)
           printf(ANSI_COLOR_RED "[%d]" ANSI_COLOR_RESET, (*map)[x][y].visits);
         else
           printf("[ ]");
@@ -135,113 +156,114 @@ void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
         break;
       case HOLE:
         printf("[#]");
-}
+      }
 
-int main() {
-  char *args[2];
-  char *envp[1];
-  char id_buffer[30];
-  int shmid_map, qid, source_qid, t, sem_idM, buffer;
-  key_t shmkey, qkey, semkeyM;
-  dataMessage msg;
-  sourceMessage msg_source;
-  /*taxiData dataBuffer;*/
-  struct msqid_ds q_ds;
-  struct sigaction act;
-  union semun argM;
+      int main() {
+        char *args[2];
+        char *envp[1];
+        char id_buffer[30];
+        int shmid_map, qid, source_qid, t, sem_idM, buffer;
+        key_t shmkey, qkey, semkeyM;
+        dataMessage msg;
+        sourceMessage msg_source;
+        /*taxiData dataBuffer;*/
+        struct msqid_ds q_ds;
+        struct sigaction act;
+        union semun argM;
 
-  memset(&act, 0, sizeof(act));
-  act.sa_handler = handler;
+        memset(&act, 0, sizeof(act));
+        act.sa_handler = handler;
 
-  sigaction(SIGINT, &act, 0);
-  sigaction(SIGALRM, &act, 0);
-  sigaction(SIGQUIT, &act, 0);
-  sigaction(SIGUSR1, &act, 0);
-  sigaction(SIGUSR2, &act, 0);
-  sigaction(SIGTSTP, &act, 0);
+        sigaction(SIGINT, &act, 0);
+        sigaction(SIGALRM, &act, 0);
+        sigaction(SIGQUIT, &act, 0);
+        sigaction(SIGUSR1, &act, 0);
+        sigaction(SIGUSR2, &act, 0);
+        sigaction(SIGTSTP, &act, 0);
 
-  if ((shmkey = ftok("./makefile", 'm')) < 0) {
-    EXIT_ON_ERROR
-  }
-  if ((shmid_map = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
-                          IPC_CREAT | 0666)) < 0) {
-    EXIT_ON_ERROR
-  }
-  if ((void *)(mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
-    EXIT_ON_ERROR
-  }
-  /*  queues for comunication with other modules */
-  if ((qkey = ftok("./makefile", 's')) < 0) {
-    EXIT_ON_ERROR
-  }
-  if ((source_qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
-    EXIT_ON_ERROR
-  }
+        if ((shmkey = ftok("./makefile", 'm')) < 0) {
+          EXIT_ON_ERROR
+        }
+        if ((shmid_map = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
+                                IPC_CREAT | 0666)) < 0) {
+          EXIT_ON_ERROR
+        }
+        if ((void *)(mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
+          EXIT_ON_ERROR
+        }
+        /*  queues for comunication with other modules */
+        if ((qkey = ftok("./makefile", 's')) < 0) {
+          EXIT_ON_ERROR
+        }
+        if ((source_qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
+          EXIT_ON_ERROR
+        }
 
-  if ((qkey = ftok("./makefile", 'd')) < 0) {
-    EXIT_ON_ERROR
-  }
-  if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
-    EXIT_ON_ERROR
-  }
+        if ((qkey = ftok("./makefile", 'd')) < 0) {
+          EXIT_ON_ERROR
+        }
+        if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
+          EXIT_ON_ERROR
+        }
 
-  logmsg("Launching Generator", DB);
-  switch (fork()) {
-  case -1:
-    EXIT_ON_ERROR
-  case 0:
-    args[0] = "generator";
-    args[1] = NULL;
-    envp[0] = NULL;
-    execve("generator", args, envp);
-  }
-  msgrcv(source_qid, &msg_source, sizeof(int), 0, 0);
-  simData.topCells = msg_source.requests;
-  t = time(NULL);
-  while (executing) {
-    if ((time(NULL) - t) >= 1) {
-      printMap(mapptr);
-      t = time(NULL);
-    }
-  }
-  while (wait(NULL) > 0) {
-  }
-  sleep(1);
-  msgctl(source_qid, IPC_STAT, &q_ds);
-  while (q_ds.msg_qnum > 0) {
-    if (msgrcv(source_qid, &msg_source, sizeof(int), 0, IPC_NOWAIT) == -1) {
-      perror("msgrcv");
-      EXIT_ON_ERROR
-    }
-    simData.requests += msg_source.requests;
-    msgctl(source_qid, IPC_STAT, &q_ds);
-  }
-  msgctl(qid, IPC_STAT, &q_ds);
-  while (q_ds.msg_qnum > 0) {
-    if (msgrcv(qid, &msg, sizeof(taxiData), 0, IPC_NOWAIT) == -1) {
-      perror("msgrcv");
-      EXIT_ON_ERROR
-    }
-    updateData(msg.type, &msg.data);
-    msgctl(qid, IPC_STAT, &q_ds);
-  }
-  simData.tripsNotServed = simData.requests - simData.trips;  
-  cellsData(mapptr, mostUsedCell_ptr);
-  printReport(mapptr, mostUsedCell_ptr);
+        logmsg("Launching Generator", DB);
+        switch (fork()) {
+        case -1:
+          EXIT_ON_ERROR
+        case 0:
+          args[0] = "generator";
+          args[1] = NULL;
+          envp[0] = NULL;
+          execve("generator", args, envp);
+        }
+        msgrcv(source_qid, &msg_source, sizeof(int), 0, 0);
+        simData.topCells = msg_source.requests;
+        t = time(NULL);
+        while (executing) {
+          if ((time(NULL) - t) >= 1) {
+            printMap(mapptr);
+            t = time(NULL);
+          }
+        }
+        while (wait(NULL) > 0) {
+        }
+        sleep(1);
+        msgctl(source_qid, IPC_STAT, &q_ds);
+        while (q_ds.msg_qnum > 0) {
+          if (msgrcv(source_qid, &msg_source, sizeof(int), 0, IPC_NOWAIT) ==
+              -1) {
+            perror("msgrcv");
+            EXIT_ON_ERROR
+          }
+          simData.requests += msg_source.requests;
+          msgctl(source_qid, IPC_STAT, &q_ds);
+        }
+        msgctl(qid, IPC_STAT, &q_ds);
+        while (q_ds.msg_qnum > 0) {
+          if (msgrcv(qid, &msg, sizeof(taxiData), 0, IPC_NOWAIT) == -1) {
+            perror("msgrcv");
+            EXIT_ON_ERROR
+          }
+          updateData(msg.type, &msg.data);
+          msgctl(qid, IPC_STAT, &q_ds);
+        }
+        simData.tripsNotServed = simData.requests - simData.trips;
+        cellsData(mapptr, mostUsedCell_ptr);
+        printReport(mapptr, mostUsedCell_ptr);
 
-  if (shmctl(shmid_map, IPC_RMID, NULL)) {
-    printf("\nError in shmctl: map,\n");
-    EXIT_ON_ERROR
-  }
-  if (msgctl(source_qid, IPC_RMID, NULL) == -1) {
-    printf("\nError in shmctl: map,\n");
-    EXIT_ON_ERROR
-  }
-  if (msgctl(qid, IPC_RMID, NULL) == -1) {
-    printf("\nError in shmctl: map,\n");
-    EXIT_ON_ERROR
-  }
+        if (shmctl(shmid_map, IPC_RMID, NULL)) {
+          printf("\nError in shmctl: map,\n");
+          EXIT_ON_ERROR
+        }
+        if (msgctl(source_qid, IPC_RMID, NULL) == -1) {
+          printf("\nError in shmctl: map,\n");
+          EXIT_ON_ERROR
+        }
+        if (msgctl(qid, IPC_RMID, NULL) == -1) {
+          printf("\nError in shmctl: map,\n");
+          EXIT_ON_ERROR
+        }
 
-  logmsg("Quitting", DB);
-  exit(0);
-}
+        logmsg("Quitting", DB);
+        exit(0);
+      }
