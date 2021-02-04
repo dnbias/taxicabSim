@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
   srand(time(NULL) ^ (getpid() << 16));
   sscanf(argv[1], "%ld", &msg.type);
   msgInterval.tv_sec = 0;
-  msgInterval.tv_nsec = 200000000;
+  msgInterval.tv_nsec = 100;
   msg_master.type = 1;
   msg_master.requests = 0;
   /********** END-INIT **********/
