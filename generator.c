@@ -433,18 +433,29 @@ void execTaxi() {
   srand(time(NULL) ^ (getpid() << 16));
   startTime = time(NULL);
   while (found != 1) {
-    if (time(NULL) - startTime > 3) {
-      exit(0);
-    }
-    x = (rand() % SO_WIDTH);
-    y = (rand() % SO_HEIGHT);
-    if (x >= 0 && x < SO_WIDTH && y >= 0 && y < SO_HEIGHT) {
-      p.x = x;
-      p.y = y;
-
-      if ((*mapptr)[p.x][p.y].state != HOLE &&
-          ((*mapptr)[p.x][p.y].traffic < (*mapptr)[p.x][p.y].capacity))
-        found = 1;
+    if (time(NULL) - startTime > 1) {
+      for (x = 0; x < SO_WIDTH; x++) {
+        for (y = 0; y < SO_HEIGHT; y++) {
+          if ((*mapptr)[x][y].state != HOLE &&
+              (*mapptr)[p.x][p.y].traffic < (*mapptr)[p.x][p.y].capacity) {
+            found = 1;
+            continue;
+          } else if (time(NULL) - startTime > 3) {
+            logmsg("Could not fit taxi", DB);
+            exit(0);
+          }
+        }
+      }
+    } else {
+      x = (rand() % SO_WIDTH);
+      y = (rand() % SO_HEIGHT);
+      if (x >= 0 && x < SO_WIDTH && y >= 0 && y < SO_HEIGHT) {
+        p.x = x;
+        p.y = y;
+        if ((*mapptr)[p.x][p.y].state != HOLE &&
+            ((*mapptr)[p.x][p.y].traffic < (*mapptr)[p.x][p.y].capacity))
+          found = 1;
+      }
     }
   }
   sprintf(argX, "%d", x);
@@ -462,7 +473,7 @@ void execTaxi() {
   args[7] = NULL;
   envp[0] = NULL;
   execve("taxi", args, envp);
-  EXIT_ON_ERROR
+  exit(0);
 }
 
 void execSource(int arg) {
@@ -494,7 +505,6 @@ void handler(int sig) {
     semctl(sem, 0, IPC_RMID);
     semctl(mutex, 0, IPC_RMID);
     logmsg("Graceful exit successful", DB);
-
     kill(getppid(), SIGUSR2);
     exit(0);
 
@@ -525,7 +535,6 @@ void handler(int sig) {
       printf("\nError in semctl: mutex,\n");
     }
     logmsg("Graceful exit successful", DB);
-
     kill(getppid(), SIGUSR2);
     exit(0);
     logmsg("Received SIGQUIT", DB);
