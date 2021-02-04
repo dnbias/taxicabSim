@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
   struct sigaction act;
   struct semid_ds sem_ds, writers_ds, source_ds;
   struct sembuf buf;
-
+  struct msqid_ds qds;
   /************ INIT ************/
 
   memset(&act, 0, sizeof(act));
@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((qid = msgget(key, IPC_CREAT | 0644)) < 0) {
+  if ((qid = msgget(key, IPC_CREAT | 0666)) < 0) {
     printf("msgget error\n");
     EXIT_ON_ERROR
   }
@@ -101,13 +101,12 @@ int main(int argc, char **argv) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((mutex = semget(key, SO_WIDTH * SO_HEIGHT, IPC_CREAT | 0666)) < 0) {
+  if ((mutex = semget(key, 1, IPC_CREAT | 0666)) < 0) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
-  sem_arg.buf = &sem_ds;
-  sem_arg.array = semval;
-  if (semctl(mutex, 0, SETALL, sem_arg) < 0) {
+  sem_arg.val = 1;
+  if (semctl(mutex, 0, SETVAL, sem_arg) < 0) {
     printf("semctl error\n");
     EXIT_ON_ERROR
   }
@@ -145,6 +144,11 @@ int main(int argc, char **argv) {
   logmsg("Init complete", DB);
   /************ END-INIT ************/
 
+  msgctl(qid, IPC_STAT, &qds);
+  if (DEBUG) {
+    printf("\tqueue_size(%d)\n", qds.msg_qbytes);
+  }
+
   logmsg("Printing map...", DB);
   printMap(mapptr);
   logmsg("Forking Sources...", DB);
@@ -157,7 +161,6 @@ int main(int argc, char **argv) {
     case -1:
       EXIT_ON_ERROR
     case 0:
-      printf("!!!!");
       execSource(i);
     }
   }
@@ -177,7 +180,8 @@ int main(int argc, char **argv) {
 
   unblock(sem);
   logmsg("Starting Timer now.", DB);
-  printf("\tAlarm in %d seconds\n", conf.SO_DURATION);
+  if (DEBUG)
+    printf("\tAlarm in %d seconds\n", conf.SO_DURATION);
   alarm(conf.SO_DURATION);
   kill(getppid(), SIGUSR1);
   logmsg("Waiting for Children...", DB);
@@ -195,6 +199,7 @@ int main(int argc, char **argv) {
       }
     }
   }
+  kill(0, SIGALRM);
   while (wait(NULL) > 0) {
   }
   shmdt(mapptr);
@@ -204,6 +209,9 @@ int main(int argc, char **argv) {
     printf("\nError in shmctl: sources,\n");
   }
   if (shmctl(shmid_readers, IPC_RMID, NULL)) {
+    printf("\nError in shmctl: readers,\n");
+  }
+  if (msgctl(qid, IPC_RMID, NULL)) {
     printf("\nError in shmctl: readers,\n");
   }
   if (semctl(writers, 0, IPC_RMID)) {
@@ -216,9 +224,8 @@ int main(int argc, char **argv) {
     printf("\nError in semctl: mutex,\n");
   }
   logmsg("Graceful exit successful", DB);
-  if (kill(0, SIGUSR2) < 0) {
-  }
 
+  kill(getppid(), SIGUSR2);
   exit(0);
 }
 
@@ -301,7 +308,20 @@ int checkNoAdiacentHoles(Cell (*matrix)[][SO_HEIGHT], int x, int y) {
 void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
   int x, y, r, i;
   time_t startTime;
+  if (SO_WIDTH <= 0 || SO_HEIGHT <= 0) {
+    logmsg("You must set appropriate SO_WIDTH and SO_HEIGHT:\n\tRetry "
+           "Quitting...",
+           RUNTIME);
+    kill(0, SIGQUIT);
+  }
+  startTime = time(NULL);
   for (x = 0; x < SO_WIDTH; x++) {
+    if (time(NULL) - startTime > 2) {
+      logmsg("Could not Geterate Map:\n\tRetry "
+             "with a smaller size. Quitting...",
+             RUNTIME);
+      kill(0, SIGQUIT);
+    }
     for (y = 0; y < SO_HEIGHT; y++) {
       (*matrix)[x][y].state = FREE;
       (*matrix)[x][y].traffic = 0;
@@ -314,10 +334,10 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
   startTime = time(NULL); /* To stop the user from using too many holes */
   for (i = conf->SO_HOLES; i > 0; i--) {
     if (time(NULL) - startTime > 2) {
-      logmsg("I'm sorry, you selected too many holes to fit the map:\n\tRetry "
+      logmsg("You selected too many holes to fit the map:\n\tRetry "
              "with less. Quitting...",
              RUNTIME);
-      kill(0, SIGINT);
+      kill(0, SIGQUIT);
     }
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
@@ -335,7 +355,7 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
       logmsg("It seems you selected too many sources to fit the map:/n/tRetry "
              "with less. Quitting...",
              RUNTIME);
-      kill(0, SIGINT);
+      kill(0, SIGQUIT);
     }
     x = rand() % SO_WIDTH;
     y = rand() % SO_HEIGHT;
@@ -392,7 +412,7 @@ void execTaxi() {
   while (found != 1) {
     if (time(NULL) - startTime > 2) {
       printf("[generator] Cannot fit taxi\n");
-      exit(0);
+      kill(0, SIGQUIT);
     }
     x = (rand() % SO_WIDTH);
     y = (rand() % SO_HEIGHT);
@@ -436,13 +456,56 @@ void execSource(int arg) {
 void handler(int sig) {
   switch (sig) {
   case SIGINT:
-    printf("=============== Received SIGINT ==============\n");
+    if (DEBUG)
+      printf("================ Closing ===============\n");
     executing = 0;
+
+    while (wait(NULL) > 0) {
+    }
+    shmdt(mapptr);
+    shmdt(sourcesList_ptr);
+    shmdt(readers);
+    shmctl(shmid_sources, IPC_RMID, NULL);
+    shmctl(shmid_readers, IPC_RMID, NULL);
+    msgctl(qid, IPC_RMID, NULL);
+    semctl(writers, 0, IPC_RMID);
+    semctl(sem, 0, IPC_RMID);
+    semctl(mutex, 0, IPC_RMID);
+    logmsg("Graceful exit successful", DB);
+
+    kill(getppid(), SIGUSR2);
+    exit(0);
+
     break;
   case SIGALRM:
-    kill(0, SIGINT);
+    executing = 0;
     break;
   case SIGQUIT:
+    shmdt(mapptr);
+    shmdt(sourcesList_ptr);
+    shmdt(readers);
+    if (shmctl(shmid_sources, IPC_RMID, NULL)) {
+      printf("\nError in shmctl: sources,\n");
+    }
+    if (shmctl(shmid_readers, IPC_RMID, NULL)) {
+      printf("\nError in shmctl: readers,\n");
+    }
+    if (msgctl(qid, IPC_RMID, NULL)) {
+      printf("\nError in shmctl: readers,\n");
+    }
+    if (semctl(writers, 0, IPC_RMID)) {
+      printf("\nError in shmctl: writers,\n");
+    }
+    if (semctl(sem, 0, IPC_RMID)) {
+      printf("\nError in semctl: sem,\n");
+    }
+    if (semctl(mutex, 0, IPC_RMID)) {
+      printf("\nError in semctl: mutex,\n");
+    }
+    logmsg("Graceful exit successful", DB);
+
+    kill(getppid(), SIGUSR2);
+    exit(0);
     logmsg("Received SIGQUIT", DB);
     break;
   case SIGUSR1:

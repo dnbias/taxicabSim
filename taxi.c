@@ -138,8 +138,11 @@ int main(int argc, char **argv) {
       logmsg("Listening for call on:", DB);
       if (DEBUG)
         printf("Source[%d](%d,%d)\n", source_id, position.x, position.y);
-      msgrcv(qid, &msg, sizeof(Point), source_id, 0);
-      received = 1;
+      if (msgrcv(qid, &msg, sizeof(Point), source_id, 0) < 0) {
+        checkTimeout();
+        logmsg("Timeout passed, waiting for message", SILENCE);
+      } else
+        received = 1;
     }
     data_msg.data.clients++;
     logmsg("Going to destination", DB);
@@ -153,47 +156,55 @@ void moveTo(Point dest) { /*pathfinding*/
   long t1, t2;
   struct timespec transit;
   struct timeval start, end;
-  Point temp;
-  logmsg("Moving to destination:", DB);
-  if (DEBUG)
+  Point temp, oldPos;
+  logmsg("Moving to destination:", SILENCE);
+  if (0)
     printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
   oldDistance = data_msg.data.distance;
   gettimeofday(&start, NULL);
   gettimeofday(&timer, NULL);
+  oldPos.x = position.x;
+  oldPos.y = position.y;
   while (position.x != dest.x || position.y != dest.y) {
     checkTimeout();
-    logmsg("Timeout passed", DB);
     t2 = 0;
 
-    if (DEBUG)
+    if (0)
       printf("[taxi-%d] pos: (%d,%d)\n", getpid(), position.x, position.y);
+    if (0)
+      printf("[taxi-%d]--->(%d,%d)\n", getpid(), dest.x, dest.y);
     dirX = dest.x - position.x;
     dirY = dest.y - position.y;
     temp.x = position.x;
     temp.y = position.y;
     found = 0;
+    if (0)
+      printf("[taxi-%d] DirX: %d DirY %d\n", getpid(), dirX, dirY);
     if (abs(dirX + dirY) == 1) {
       incTrafficAt(dest);
       decTrafficAt(position);
       position.x = dest.x;
       position.y = dest.y;
-      if (DEBUG)
+      if (0)
         printf("[taxi-%d] arrived at: (%d,%d)\n", getpid(), dest.x, dest.y);
       break;
     }
-    if (dirX == 0 && dirY > 0 && (*mapptr)[temp.x][temp.y + 1].state == FREE) {
+    if (dirX == 0 && dirY > 0 && (oldPos.y != position.y + 1) &&
+        (*mapptr)[temp.x][temp.y + 1].state == FREE) {
       temp.y++;
       while (!found) {
         checkTimeout();
         if (canTransit(temp)) {
           incTrafficAt(temp);
           decTrafficAt(position);
+          oldPos.x = position.x;
+          oldPos.y = position.y;
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
         }
       }
-    } else if (dirX == 0 && dirY < 0 &&
+    } else if (dirX == 0 && dirY < 0 && (oldPos.y != position.y - 1) &&
                (*mapptr)[temp.x][temp.y - 1].state == FREE) {
       temp.y--;
       while (!found) {
@@ -201,12 +212,14 @@ void moveTo(Point dest) { /*pathfinding*/
         if (canTransit(temp)) {
           incTrafficAt(temp);
           decTrafficAt(position);
+          oldPos.x = position.x;
+          oldPos.y = position.y;
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
         }
       }
-    } else if (dirY == 0 && dirX > 0 &&
+    } else if (dirY == 0 && dirX > 0 && (oldPos.x != position.x + 1) &&
                (*mapptr)[temp.x + 1][temp.y].state == FREE) {
       temp.x++;
       while (!found) {
@@ -214,12 +227,14 @@ void moveTo(Point dest) { /*pathfinding*/
         if (canTransit(temp)) {
           incTrafficAt(temp);
           decTrafficAt(position);
+          oldPos.x = position.x;
+          oldPos.y = position.y;
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
         }
       }
-    } else if (dirY == 0 && dirX < 0 &&
+    } else if (dirY == 0 && dirX < 0 && (oldPos.x != position.x - 1) &&
                (*mapptr)[temp.x - 1][temp.y].state == FREE) {
       temp.x--;
       while (!found) {
@@ -227,140 +242,155 @@ void moveTo(Point dest) { /*pathfinding*/
         if (canTransit(temp)) {
           incTrafficAt(temp);
           decTrafficAt(position);
+          oldPos.x = position.x;
+          oldPos.y = position.y;
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
         }
       }
     } else if (dirX >= 0 && dirY >= 0) {
-      temp.x++;
-      for (i = 0; i < 3 && !found; i++) {
-        checkTimeout();
-        logmsg("Timeout passed", DB);
-        switch (canTransit(temp)) {
+      for (i = 0; i < 5 && !found; i++) {
+        switch (i) {
+        case 0:
+          temp.x++;
+          break;
         case 1:
+          temp.y++;
+          break;
+        case 2:
+          temp.x--;
+          break;
+        case 3:
+          temp.y--;
+          break;
+        case 4:
+          i = -1;
+          continue;
+        }
+        checkTimeout();
+        if (oldPos.x == temp.x && oldPos.y == temp.y) {
+          temp.x = position.x;
+          temp.y = position.y;
+          continue;
+        } else {
+          if (!canTransit(temp))
+            continue;
           incTrafficAt(temp);
           decTrafficAt(position);
+          oldPos.x = position.x;
+          oldPos.y = position.y;
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
-          break;
-        case 0:
-          switch (i) {
-          case 0:
-            temp.x--;
-            temp.y++;
-            break;
-          case 1:
-            temp.y = temp.y - 2;
-            break;
-          case 2:
-            temp.x--;
-            temp.y++;
-          case 3:
-            temp.x = temp.x + 2;
-            i = 0;
-            break;
-          }
         }
       }
     } else if (dirX >= 0 && dirY <= 0) {
-      temp.x++;
-      for (i = 0; i < 4 && !found; i++) {
-        checkTimeout();
-        logmsg("Timeout passed", DB);
-        switch (canTransit(temp)) {
+      for (i = 0; i < 5 && !found; i++) {
+        switch (i) {
+        case 0:
+          temp.x++;
+          break;
         case 1:
+          temp.y--;
+          break;
+        case 2:
+          temp.x--;
+          break;
+        case 3:
+          temp.y++;
+          break;
+        case 4:
+          i = -1;
+          continue;
+        }
+        checkTimeout();
+        if (oldPos.x == temp.x && oldPos.y == temp.y) {
+          temp.x = position.x;
+          temp.y = position.y;
+          continue;
+        } else {
+          if (!canTransit(temp))
+            continue;
           incTrafficAt(temp);
           decTrafficAt(position);
+          oldPos.x = position.x;
+          oldPos.y = position.y;
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
-          break;
-        case 0:
-          switch (i) {
-          case 0:
-            temp.x--;
-            temp.y--;
-            break;
-          case 1:
-            temp.y = temp.y + 2;
-            break;
-          case 2:
-            temp.y--;
-            temp.x--;
-            break;
-          case 3:
-            temp.x = temp.x + 2;
-            i = 0;
-            break;
-          }
         }
       }
     } else if (dirX <= 0 && dirY >= 0) {
-      temp.x--;
-      for (i = 0; i < 3 && !found; i++) {
-        checkTimeout();
-        logmsg("Timeout passed", DB);
-        switch (canTransit(temp)) {
+      for (i = 0; i < 5 && !found; i++) {
+        switch (i) {
+        case 0:
+          temp.y++;
+          break;
         case 1:
+          temp.y--;
+          break;
+        case 2:
+          temp.x--;
+          break;
+        case 3:
+          temp.x++;
+          break;
+        case 4:
+          i = -1;
+          continue;
+        }
+        checkTimeout();
+        if (oldPos.x == temp.x && oldPos.y == temp.y) {
+          temp.x = position.x;
+          temp.y = position.y;
+          continue;
+        } else {
+          if (!canTransit(temp))
+            continue;
           incTrafficAt(temp);
           decTrafficAt(position);
+          oldPos.x = position.x;
+          oldPos.y = position.y;
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
-          break;
-        case 0:
-          switch (i) {
-          case 0:
-            temp.x++;
-            temp.y++;
-            break;
-          case 1:
-            temp.x = temp.x + 2;
-            break;
-          case 2:
-            temp.x++;
-            temp.y--;
-            break;
-          case 3:
-            temp.y = temp.y - 2;
-            i = 0;
-            break;
-          }
         }
       }
     } else if (dirX <= 0 && dirY <= 0) {
-      temp.x--;
-      for (i = 0; i < 3 && !found; i++) {
-        checkTimeout();
-        logmsg("Timeout passed", DB);
-        switch (canTransit(temp)) {
+      for (i = 0; i < 5 && !found; i++) {
+        switch (i) {
+        case 0:
+          temp.x--;
+          break;
         case 1:
+          temp.y--;
+          break;
+        case 2:
+          temp.x++;
+          break;
+        case 3:
+          temp.y++;
+          break;
+        case 4:
+          i = -1;
+          continue;
+        }
+        checkTimeout();
+        if (oldPos.x == temp.x && oldPos.y == temp.y) {
+          temp.x = position.x;
+          temp.y = position.y;
+          continue;
+        } else {
+          if (!canTransit(temp))
+            continue;
           incTrafficAt(temp);
           decTrafficAt(position);
+          oldPos.x = position.x;
+          oldPos.y = position.y;
           position.x = temp.x;
           position.y = temp.y;
           found = 1;
-          break;
-        case 0:
-          switch (i) {
-          case 0:
-            temp.y--;
-            temp.x++;
-            break;
-          case 1:
-            temp.y = temp.y + 2;
-            break;
-          case 2:
-            temp.x++;
-            temp.y--;
-            break;
-          case 3:
-            temp.x = temp.x - 2;
-            i = 0;
-            break;
-          }
         }
       }
     } /*END-else-ifs*/
@@ -375,6 +405,7 @@ void moveTo(Point dest) { /*pathfinding*/
     nanosleep(&transit, NULL);
     (*mapptr)[position.x][position.y].visits++;
     data_msg.data.distance++;
+    (*mapptr)[position.x][position.y].visits++;
     gettimeofday(&timer, NULL);
   } /*END-while*/
   gettimeofday(&end, NULL);
@@ -394,18 +425,18 @@ int canTransit(Point p) {
   int r;
   if (!(p.x >= 0 && p.x < SO_WIDTH && p.y >= 0 && p.y < SO_HEIGHT))
     return 0;
-  semWait(p, mutex);
+  lock(mutex);
   *readers++;
   if (*readers == 1)
     semWait(p, writers);
-  semSignal(p, mutex);
+  unlock(mutex);
   r = isFree(mapptr, p) &&
       (*mapptr)[p.x][p.y].traffic < (*mapptr)[p.x][p.y].capacity;
-  semWait(p, mutex);
+  lock(mutex);
   *readers--;
   if (*readers == 0)
     semSignal(p, writers);
-  semSignal(p, mutex);
+  unlock(mutex);
   return r;
 }
 
@@ -415,7 +446,7 @@ void incTrafficAt(Point p) {
   semWait(p, writers);
   (*mapptr)[p.x][p.y].traffic++;
   semSignal(p, writers);
-  if (DEBUG)
+  if (0)
     printf("[taxi-%d]->(%d,%d)\n", getpid(), p.x, p.y);
 }
 
@@ -451,27 +482,29 @@ Point getNearSource(int *source_id) {
 void checkTimeout() {
   struct timeval elapsed;
   int s, u, n;
-  logmsg("Timeout check", DB);
+  logmsg("Timeout check", SILENCE);
   gettimeofday(&elapsed, NULL);
   s = elapsed.tv_sec - timer.tv_sec;
   u = elapsed.tv_usec - timer.tv_usec;
   n = s * 1000 + (u / 10 ^ 3);
   if (n >= timeout) {
-    logmsg("Timedout", RUNTIME);
+    logmsg("Timedout", DB);
     decTrafficAt(position);
     data_msg.data.abort++;
-    logmsg("Finishing up", DB);
+    logmsg("Finishing up", SILENCE);
     shmdt(mapptr);
     shmdt(sourcesList_ptr);
     shmdt(readers);
     msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
     logmsg("Graceful exit successful", DB);
-    printf("\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
-           "clients: %i, tripsSuccess: %i, abort: %i;\n\n",
-           data_msg.type, data_msg.data.distance,
-           data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
-           data_msg.data.clients, data_msg.data.tripsSuccess,
-           data_msg.data.abort);
+    if (DEBUG)
+      printf(
+          "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
+          "clients: %i, tripsSuccess: %i, abort: %i;\n\n",
+          data_msg.type, data_msg.data.distance,
+          data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
+          data_msg.data.clients, data_msg.data.tripsSuccess,
+          data_msg.data.abort);
     kill(getppid(), SIGUSR1);
     exit(0);
   } else
@@ -481,25 +514,28 @@ void checkTimeout() {
 void handler(int sig) {
   switch (sig) {
   case SIGINT:
-    logmsg("Finishing up", DB);
+    logmsg("Finishing up", SILENCE);
     decTrafficAt(position);
     shmdt(mapptr);
     shmdt(sourcesList_ptr);
     shmdt(readers);
-    msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
+    msgsnd(master_qid, &data_msg, sizeof(taxiData), IPC_NOWAIT);
     logmsg("Graceful exit successful", DB);
-    printf(ANSI_COLOR_MAGENTA
-           "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
-           "clients: %i, tripsSuccess: %i, abort: %i;\n\n" ANSI_COLOR_RESET,
-           data_msg.type, data_msg.data.distance,
-           data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
-           data_msg.data.clients, data_msg.data.tripsSuccess,
-           data_msg.data.abort);
-
+    if (DEBUG)
+      printf(
+          ANSI_COLOR_MAGENTA
+          "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
+          "clients: %i, tripsSuccess: %i, abort: %i;\n\n" ANSI_COLOR_RESET,
+          data_msg.type, data_msg.data.distance,
+          data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
+          data_msg.data.clients, data_msg.data.tripsSuccess,
+          data_msg.data.abort);
     exit(0);
   case SIGQUIT:
-    logmsg("SIGQUIT", RUNTIME);
-
+    logmsg("SIGQUIT", DB);
+    break;
+  case SIGALRM:
+    raise(SIGINT);
     break;
   case SIGUSR1:
     logmsg("Received SIGUSR1", DB);
@@ -507,7 +543,7 @@ void handler(int sig) {
   case SIGSTOP:
     break;
   case SIGUSR2:
+    logmsg("Received SIGUSR2", DB);
     break;
   }
-  return;
 }
