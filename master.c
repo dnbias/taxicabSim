@@ -10,13 +10,13 @@ void printMap(Cell (*map)[][SO_HEIGHT]) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
       case FREE:
-        printf("[%d]", (*map)[x][y].traffic);
+        printf("[%2d]", (*map)[x][y].visits);
         break;
       case SOURCE:
-        printf("[S]");
+        printf("[So]");
         break;
       case HOLE:
-        printf("[#]");
+        printf("[##]");
       }
     }
     printf("\n");
@@ -130,18 +130,6 @@ int main() {
   }
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
     EXIT_ON_ERROR
-  }
-
-  if (DEBUG) {
-    logmsg("Testing Map", DB);
-    (*mapptr)[10][1].state = FREE;
-    (*mapptr)[2][7].state = FREE;
-    (*mapptr)[4][1].state = FREE;
-    (*mapptr)[1][1].capacity = 70;
-    (*mapptr)[14][5].state = FREE;
-    (*mapptr)[4][1].capacity = 50;
-    (*mapptr)[3][9].state = FREE;
-    logmsg("Ok", DB);
   }
 
   logmsg("Launching Generator", DB);

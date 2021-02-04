@@ -19,8 +19,8 @@
 #define DEBUG 0
 #endif
 
-#define SO_WIDTH 30 /* a tempo di compilazione */
-#define SO_HEIGHT 39
+#define SO_WIDTH 7 /* a tempo di compilazione */
+#define SO_HEIGHT 31
 #define MAX_SOURCES SO_WIDTH *SO_HEIGHT
 #define EXIT_ON_ERROR                                                          \
   if (errno) {                                                                 \
@@ -69,6 +69,10 @@ void semWait(Point, int);
 void semSignal(Point, int);
 
 void semSync(int);
+
+void lock(int);
+
+void unlock(int);
 
 union semun {
   int val;

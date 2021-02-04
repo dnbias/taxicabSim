@@ -101,13 +101,12 @@ int main(int argc, char **argv) {
     printf("ftok error\n");
     EXIT_ON_ERROR
   }
-  if ((mutex = semget(key, SO_WIDTH * SO_HEIGHT, IPC_CREAT | 0666)) < 0) {
+  if ((mutex = semget(key, 1, IPC_CREAT | 0666)) < 0) {
     printf("semget error\n");
     EXIT_ON_ERROR
   }
-  sem_arg.buf = &sem_ds;
-  sem_arg.array = semval;
-  if (semctl(mutex, 0, SETALL, sem_arg) < 0) {
+  sem_arg.val = 1;
+  if (semctl(mutex, 0, SETVAL, sem_arg) < 0) {
     printf("semctl error\n");
     EXIT_ON_ERROR
   }
@@ -216,9 +215,8 @@ int main(int argc, char **argv) {
     printf("\nError in semctl: mutex,\n");
   }
   logmsg("Graceful exit successful", DB);
-  if (kill(0, SIGUSR2) < 0) {
-  }
 
+  kill(0, SIGUSR2);
   exit(0);
 }
 

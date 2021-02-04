@@ -8,7 +8,7 @@ int semSyncSource(int);
 
 void logmsg(char *, enum Level);
 
-void utentRequest();
+void userRequest();
 
 typedef struct {
   long type;

@@ -102,26 +102,27 @@ int main(int argc, char **argv) {
 
   logmsg("Going into execution cycle", DB);
   while (1) {
-    nanosleep(&msgInterval, NULL);
+    /*nanosleep(&msgInterval, NULL);*/
     while (found != 1) {
+      logmsg("Generating message", RUNTIME);
       msg.destination.x = (rand() % SO_WIDTH);
       msg.destination.y = (rand() % SO_HEIGHT);
       if (msg.destination.x >= 0 && msg.destination.x < SO_WIDTH &&
           msg.destination.y >= 0 && msg.destination.y < SO_HEIGHT) {
-        semWait(msg.destination, mutex);
+        lock(mutex);
         *readers++;
         if (*readers == 1)
           semWait(msg.destination, writers);
-        semSignal(msg.destination, mutex);
+        unlock(mutex);
         found = isFree(mapptr, msg.destination);
-        semWait(msg.destination, mutex);
+        lock(mutex);
         *readers--;
         if (*readers == 0)
           semSignal(msg.destination, writers);
-        semSignal(msg.destination, mutex);
+        unlock(mutex);
       }
     }
-    logmsg("Sending message:", DB);
+    logmsg("Sending message", RUNTIME);
     if (DEBUG) {
       printf("\tmsg((%ld),(%d,%d))\n", msg.type, msg.destination.x,
              msg.destination.y);
@@ -130,15 +131,6 @@ int main(int argc, char **argv) {
     msg_master.requests++;
     found = 0;
   }
-}
-
-void unblock(int sem) {
-  struct sembuf buf;
-  buf.sem_num = 0;
-  buf.sem_op = -1;
-  buf.sem_flg = 0;
-  if (semop(sem, &buf, 1) < 0)
-    EXIT_ON_ERROR
 }
 
 void logmsg(char *message, enum Level l) {
@@ -151,6 +143,8 @@ void logmsg(char *message, enum Level l) {
 
 void handler(int sig) {
   switch (sig) {
+  case SIGALRM:
+    break;
   case SIGINT:
     logmsg("Finishing up", DB);
     shmdt(mapptr);
@@ -163,7 +157,7 @@ void handler(int sig) {
     break;
   case SIGTSTP:
     logmsg("Received SIGSTOP", RUNTIME);
-    utentRequest();
+    userRequest();
     break;
     return;
   }
@@ -178,7 +172,7 @@ int semSyncSource(int sem) {
   else
     return 0;
 }
-void utentRequest() {
+void userRequest() {
   Message msg;
   int found;
   if (semSyncSource(sem) < 0)
@@ -189,17 +183,17 @@ void utentRequest() {
     msg.destination.y = (rand() % SO_HEIGHT);
     if (msg.destination.x >= 0 && msg.destination.x < SO_WIDTH &&
         msg.destination.y >= 0 && msg.destination.y < SO_HEIGHT) {
-      semWait(msg.destination, mutex);
+      lock(mutex);
       *readers++;
       if (*readers == 1)
         semWait(msg.destination, writers);
-      semSignal(msg.destination, mutex);
+      unlock(mutex);
       found = isFree(mapptr, msg.destination);
-      semWait(msg.destination, mutex);
+      lock(mutex);
       *readers--;
       if (*readers == 0)
         semSignal(msg.destination, writers);
-      semSignal(msg.destination, mutex);
+      unlock(mutex);
     }
     found = 0;
   }

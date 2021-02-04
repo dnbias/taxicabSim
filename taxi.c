@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
       logmsg("Listening for call on:", DB);
       if (DEBUG)
         printf("Source[%d](%d,%d)\n", source_id, position.x, position.y);
-      if (msgrcv(qid, &msg, sizeof(Point), source_id, IPC_NOWAIT) < 0) {
+      if (msgrcv(qid, &msg, sizeof(Point), source_id, 0) < 0) {
         checkTimeout();
         logmsg("Timeout passed, waiting for message", DB);
       } else
@@ -266,8 +266,8 @@ void moveTo(Point dest) { /*pathfinding*/
           temp.y--;
           break;
         case 4:
-          i = 0;
-          break;
+          i = -1;
+          continue;
         }
         checkTimeout();
         logmsg("Timeout passed", DB);
@@ -303,8 +303,8 @@ void moveTo(Point dest) { /*pathfinding*/
           temp.y++;
           break;
         case 4:
-          i = 0;
-          break;
+          i = -1;
+          continue;
         }
         checkTimeout();
         logmsg("Timeout passed", DB);
@@ -340,8 +340,8 @@ void moveTo(Point dest) { /*pathfinding*/
           temp.x++;
           break;
         case 4:
-          i = 0;
-          break;
+          i = -1;
+          continue;
         }
         checkTimeout();
         logmsg("Timeout passed", DB);
@@ -377,8 +377,8 @@ void moveTo(Point dest) { /*pathfinding*/
           temp.y++;
           break;
         case 4:
-          i = 0;
-          break;
+          i = -1;
+          continue;
         }
         checkTimeout();
         logmsg("Timeout passed", DB);
@@ -409,6 +409,7 @@ void moveTo(Point dest) { /*pathfinding*/
     transit.tv_nsec = t1;
     nanosleep(&transit, NULL);
     data_msg.data.distance++;
+    (*mapptr)[position.x][position.y].visits++;
     gettimeofday(&timer, NULL);
   } /*END-while*/
   gettimeofday(&end, NULL);
@@ -428,18 +429,18 @@ int canTransit(Point p) {
   int r;
   if (!(p.x >= 0 && p.x < SO_WIDTH && p.y >= 0 && p.y < SO_HEIGHT))
     return 0;
-  semWait(p, mutex);
+  lock(mutex);
   *readers++;
   if (*readers == 1)
     semWait(p, writers);
-  semSignal(p, mutex);
+  unlock(mutex);
   r = isFree(mapptr, p) &&
       (*mapptr)[p.x][p.y].traffic < (*mapptr)[p.x][p.y].capacity;
-  semWait(p, mutex);
+  lock(mutex);
   *readers--;
   if (*readers == 0)
     semSignal(p, writers);
-  semSignal(p, mutex);
+  unlock(mutex);
   return r;
 }
 
