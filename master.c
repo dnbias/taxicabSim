@@ -5,53 +5,33 @@ int usage[5];
 volatile int executing = 1;
 Data simData;
 
-<<<<<<< HEAD
-
-void cellsData(Cell (*map)[][SO_HEIGHT], int usage[]){
-  int x,y,n,cnt, db;
-  usage[0] = 0;
-  usage[1] = 0;
-  usage[2] = 0;
-  usage[3] = 0;
-  usage[4] = 0;
+void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]){
+  int x,y,n,cnt;
+  int usage[5];
   for (y = 0; y < SO_HEIGHT; y++){
     for (x = 0; x < SO_HEIGHT; x++){
-       db = 0;
-       for(n = 0; n < 5; n++){
-         if((*map)[x][y].visits == usage[n])
-           db = -1;
-       }
-       if(db==0){
-         for(n = 0; n < 5; n++){
+      if((*map)[x][y].state == FREE){
+         for(n = 0; n < (SO_TOP_CELLS-1); n++){
             if((*map)[x][y].visits > usage[n]){
-              for(cnt=1; cnt+n < 5; cnt++)
-                usage[cnt+n] = usage[cnt+n-1];
+              for(cnt=0; cnt+n< SO_TOP_CELLS; cnt++){
+                mostUsedCell_ptr[n+cnt+1].x = mostUsedCell_ptr[n+cnt].x;
+                mostUsedCell_ptr[cnt+n+1].y = mostUsedCell_ptr[n+cnt].x;
+                usage[n] = (*map)[x][y].visits;
+              }
+              mostUsedCell_ptr[n].x = x;
+              mostUsedCell_ptr[n].y = y;
               usage[n] = (*map)[x][y].visits;
               break;
              }
          }
-       }
+      }
     }
   }
+  simData.cellWinner.x = mostUsedCell_ptr[0].x;
+  simData.cellWinner.y = mostUsedCell_ptr[0].y;
+  simData.maxVisits = usage[0];
 }
-=======
-/*void cellsData(Cell (*map)[][SO_HEIGHT]){
-  int x,y,n;
-  (*mostUsed)[0].visits = 0;
-  (*mostUsed)[1].visits = 0;
-  (*mostUsed)[2].visits = 0;
-  (*mostUsed)[3].visits = 0;
-  (*mostUsed)[4].visits = 0;
-  for(x = 0; x < SO_WIDTH; x++)
-        for(y = 0; y < SO_HEIGHT; y++)
-          for(n = 0; n < 4; n++)
-                if((*map)[x][y].visits > (*mostUsed)[n].visits){
-                  (*mostUsed)[n+1] = (*mostUsed)[n];
-                  (*mostUsed)[n] = (*mapptr)[x][y];
-                }
 
-}*/
->>>>>>> ac51007 (Fix)
 
 void printMap(Cell (*map)[][SO_HEIGHT]) {
   int x, y;
@@ -119,7 +99,7 @@ void updateData(long pid, taxiData *data) {
   }
 }
 
-void printReport(Cell (*map)[][SO_HEIGHT], int usage[]) {
+void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[]) {
   int x,y,n;
   printf("========== Simulation Success ==========\n");
   printf("Statistics:\n");
@@ -129,57 +109,32 @@ void printReport(Cell (*map)[][SO_HEIGHT], int usage[]) {
          simData.tripsNotServed, (simData.trips - simData.tripsSuccess));
   printf("\tTaxi:\n");
   printf("\t\tMost Distance \tLongest Trip \tMost Trips\n");
-  printf("\tpid:\t%ld        \t%ld          \t%ld\n", simData.distanceWinner,
+  printf("\tpid:\t%ld       \t%ld          \t%ld\n", simData.distanceWinner,
          simData.timeWinner, simData.tripsWinner);
   printf("\t    \t%d            \t%ld ms     \t%d\n", simData.maxDistance,
          (simData.maxTime.tv_sec * 1000 + simData.maxTime.tv_usec / 1000),
          simData.maxTrips);
-<<<<<<< HEAD
+
+  printf("\t\tMost Visited cell\tvisits\n");
+  printf("\t\t(%d,%d)  \t\t%d\n", simData.cellWinner.x, simData.cellWinner.y, simData.maxVisits);
+
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
       case FREE:
-        n = 4;
-        while((*map)[x][y].visits > usage[n] && n >= 0){
-          n--;
-        }
-        if((*map)[x][y].visits == usage[n])
-          printf(ANSI_COLOR_RED "[%d]" ANSI_COLOR_RESET, (*mapptr)[x][y].visits);
+        n = 0;
+        while(n < 5 && (x!=mostUsedCell_ptr[n].x || y!=mostUsedCell_ptr[n].y))
+          n++;
+        if(x == mostUsedCell_ptr[n].x && y == mostUsedCell_ptr[n].y)
+          printf(ANSI_COLOR_RED "[%d]" ANSI_COLOR_RESET, (*map)[x][y].visits);
         else
-          printf("[%d]", (*mapptr)[x][y].visits);
+          printf("[ ]");
         break;
       case SOURCE:
         printf("[S]");
         break;
       case HOLE:
         printf("[#]");
-=======
-
-  /*  for (y = 0; y < SO_HEIGHT; y++) {
-      for (x = 0; x < SO_WIDTH; x++) {
-        switch ((*mapptr)[x][y].state) {
-        case FREE:
-          for(n = 0; n < 5; n++)
-            if((*mapptr)[x][y].visits == (*mostUsed)[n].visits)
-                  printf(ANSI_COLOR_RED "[%d]" ANSI_COLOR_RESET,
-    (*mapptr)[x][y].visits); else printf("[%d]", (*mapptr)[x][y].visits); break;
-        case SOURCE:
-          printf("[S]");
-          break;
-        case HOLE:
-          printf("[#]");
-        }
->>>>>>> ac51007 (Fix)
-      }
-      printf("\n");
-    }
-<<<<<<< HEAD
-    printf("\n");
-  }
-  printf("\n");
-=======
-    printf("\n");*/
->>>>>>> ac51007 (Fix)
 }
 
 int main() {
@@ -270,10 +225,9 @@ int main() {
     updateData(msg.type, &msg.data);
     msgctl(qid, IPC_STAT, &q_ds);
   }
-  simData.tripsNotServed = simData.requests - simData.trips;
-  cellsData(mapptr, usage);
-    printf("%i, %i, %i, %i, %i,\n", usage[0], usage[1], usage[2], usage[3], usage[4]);
-  printReport(mapptr, usage);
+  simData.tripsNotServed = simData.requests - simData.trips;  
+  cellsData(mapptr, mostUsedCell_ptr);
+  printReport(mapptr, mostUsedCell_ptr);
 
   if (shmctl(shmid_map, IPC_RMID, NULL)) {
     printf("\nError in shmctl: map,\n");

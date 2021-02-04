@@ -34,6 +34,8 @@ typedef struct {
   long timeWinner;
   int maxDistance;
   long distanceWinner;
+  int maxVisits;
+  Point cellWinner;
 } Data;
 
 void cellsData();
