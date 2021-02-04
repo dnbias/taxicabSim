@@ -1,8 +1,26 @@
 #include "master.h"
 
 Cell (*mapptr)[][SO_HEIGHT];
+Cell (*mostUsed)[5];
 volatile int executing = 1;
 Data simData;
+
+/*void cellsData(Cell (*map)[][SO_HEIGHT]){
+  int x,y,n;
+  (*mostUsed)[0].visits = 0;
+  (*mostUsed)[1].visits = 0;
+  (*mostUsed)[2].visits = 0;
+  (*mostUsed)[3].visits = 0;
+  (*mostUsed)[4].visits = 0;
+  for(x = 0; x < SO_WIDTH; x++)
+	for(y = 0; y < SO_HEIGHT; y++)
+	  for(n = 0; n < 4; n++)
+		if((*map)[x][y].visits > (*mostUsed)[n].visits){
+		  (*mostUsed)[n+1] = (*mostUsed)[n];
+		  (*mostUsed)[n] = (*mapptr)[x][y]; 
+		}
+
+}*/
 
 void printMap(Cell (*map)[][SO_HEIGHT]) {
   int x, y;
@@ -83,7 +101,29 @@ void printReport() {
   printf("\t    \t%d            \t%ld ms     \t%d\n", simData.maxDistance,
          (simData.maxTime.tv_sec * 1000 + simData.maxTime.tv_usec / 1000),
          simData.maxTrips);
+
+/*  for (y = 0; y < SO_HEIGHT; y++) {
+    for (x = 0; x < SO_WIDTH; x++) {
+      switch ((*mapptr)[x][y].state) {
+      case FREE:
+        for(n = 0; n < 5; n++)
+          if((*mapptr)[x][y].visits == (*mostUsed)[n].visits)
+          	printf(ANSI_COLOR_RED "[%d]" ANSI_COLOR_RESET, (*mapptr)[x][y].visits);
+          else
+          	printf("[%d]", (*mapptr)[x][y].visits);
+        break;
+      case SOURCE:
+        printf("[S]");
+        break;
+      case HOLE:
+        printf("[#]");
+      }
+    }
+    printf("\n");
+  }
+  printf("\n");*/
 }
+
 
 int main() {
   char *args[2];
@@ -174,6 +214,7 @@ int main() {
     msgctl(qid, IPC_STAT, &q_ds);
   }
   simData.tripsNotServed = simData.requests - simData.trips;
+  /*cellsData(mapptr);*/
   printReport();
 
   if (shmctl(shmid_map, IPC_RMID, NULL)) {

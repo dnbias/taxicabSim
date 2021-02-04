@@ -403,6 +403,7 @@ void moveTo(Point dest) { /*pathfinding*/
     transit.tv_sec = t2;
     transit.tv_nsec = t1;
     nanosleep(&transit, NULL);
+    (*mapptr)[position.x][position.y].visits++;
     data_msg.data.distance++;
     (*mapptr)[position.x][position.y].visits++;
     gettimeofday(&timer, NULL);

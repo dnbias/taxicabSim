@@ -35,4 +35,6 @@ typedef struct {
   long distanceWinner;
 } Data;
 
+void cellsData();
+
 #endif
