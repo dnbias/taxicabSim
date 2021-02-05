@@ -5,11 +5,10 @@ volatile int executing = 1;
 Data simData;
 
 void cellsData(Cell (*map)[][SO_HEIGHT]) {
-  int x, y, n, cnt, tmpIB, tmpIA;
+  int x, y, n, cnt, tmpIB, tmpIA, usage[SO_WIDTH*SO_HEIGHT];
   Point tmpB, tmpT;
-  int usage[simData.topCells];
   for (y = 0; y < SO_HEIGHT; y++) {
-    for (x = 0; x < SO_HEIGHT; x++) {
+    for (x = 0; x < SO_WIDTH; x++) {
         for (n = 0; n < simData.topCells; n++) {
           if ((*map)[x][y].visits > usage[n]) {
             if(n != (simData.topCells-1)){
