@@ -172,6 +172,7 @@ Si occupa dei taxi e di configurare il loro comportamento durante l'esecuzione d
 - si sposta alla sorgente piu' vicina, ovvero al punto d'origine del cliente
 - una volta alla sorgente raccoglie le richieste di quella specifica Source sulla *coda di messaggi*
 - si sposta alla Cella indicata dalla richiesta
+- rimane fermo nella cella corrente per un tempo compreso tra SO_TIMENSEC_MIN e SO_TIMENSEC_MAX
 - Il processo continuera' a ripetersi fino al termine del tempo a disposizione alla simulazione, o nel caso il Taxi raggiunga il tempo di SO_TIMEOUT tra uno spostamento e l'altro (nel caso non riesca a prendere in carico una richiesta in tempo)
 - Una volta ricevuto =SIGALRM= o =SIGINT= rilascia le risorse e chiude.
 
