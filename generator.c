@@ -1,12 +1,10 @@
 #include "generator.h"
 #include "general.h"
 #include "source.h"
-#include <sys/msg.h>
-#include <unistd.h>
 
 Config conf;
-int shmid_sources, shmid_map, shmid_ex, shmid_readers, qid, writers, sem, mutex,
-    semSource, executing = 1;
+int shmid_sources, shmid_map, shmid_ex, shmid_readers, qid, master_qid, writers,
+    sem, mutex, semSource, executing = 1;
 Point (*sourcesList_ptr)[];
 Cell (*mapptr)[][SO_HEIGHT];
 int *readers, dead_taxis = 0;
@@ -80,7 +78,14 @@ int main(int argc, char **argv) {
     printf("msgget error\n");
     EXIT_ON_ERROR
   }
-
+  if ((key = ftok("./makefile", 's')) < 0) {
+    printf("ftok error\n");
+    EXIT_ON_ERROR
+  }
+  if ((master_qid = msgget(key, 0666)) < 0) {
+    printf("msgget error\n");
+    EXIT_ON_ERROR
+  }
   if ((key = ftok("./makefile", 'w')) < 0) {
     printf("ftok error\n");
     EXIT_ON_ERROR
@@ -180,7 +185,8 @@ int main(int argc, char **argv) {
       execTaxi();
     }
   }
-  msgsnd(qid, &topCells, sizeof(int), 0);
+
+  msgsnd(master_qid, &topCells, sizeof(int), 0);
   unblock(sem);
   logmsg("Starting Timer now.", DB);
   if (DEBUG)
