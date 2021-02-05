@@ -516,7 +516,6 @@ void handler(int sig) {
     logmsg("Graceful exit successful", DB);
     printRep();
 
-
     exit(0);
   case SIGQUIT:
     logmsg("SIGQUIT", DB);
@@ -538,7 +537,7 @@ void handler(int sig) {
 void printRep() {
   if (DEBUG)
     printf(
-        ANSI_COLOR_MAGENTA
+        ANSI_COLOR_RED
         "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld "
         "ms,\n"
         "clients: %i, tripsSuccess: %i, abort: %i;\n\n" ANSI_COLOR_RESET,
