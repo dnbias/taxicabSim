@@ -121,17 +121,24 @@ void printReport(Cell (*map)[][SO_HEIGHT]) {
   printf("\t    \t%d            \t%ld ms     \t%d\n", simData.maxDistance,
          (simData.maxTime.tv_sec * 1000 + simData.maxTime.tv_usec / 1000),
          simData.maxTrips);
+  printf("\tCells:\n");
+  printf("\t\tvisits \tx \ty\n");
+  for(n = 0; n < simData.topCells; n++){
+    printf("\t\t%d \t%d \t%d \n", (*map)[simData.cellsWinner[n].x][simData.cellsWinner[n].y].visits, simData.cellsWinner[n].x, 
+    			simData.cellsWinner[n].y);
+  }
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
       case FREE:
         db = 0;
-        for(n = 0; n < simData.topCells; n++)
+        for(n = 0; n < simData.topCells; n++){
         	if(simData.cellsWinner[n].x == x && simData.cellsWinner[n].y == y){
         	  db = 1;
-        	  printf("[%d]", n);
+        	  printf( ANSI_COLOR_RED "[ ]" ANSI_COLOR_RESET);
         	}
-        if(db==0){
+        }
+        if(db == 0){
           printf("[ ]");
         }
         break;
