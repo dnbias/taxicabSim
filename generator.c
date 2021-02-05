@@ -152,11 +152,6 @@ int main(int argc, char **argv) {
   logmsg("Init complete", DB);
   /************ END-INIT ************/
 
-  msgctl(qid, IPC_STAT, &qds);
-  if (DEBUG) {
-    printf("\tqueue_size(%ld)\n", qds.msg_qbytes);
-  }
-
   logmsg("Printing map...", DB);
   printMap(mapptr);
   logmsg("Forking Sources...", DB);

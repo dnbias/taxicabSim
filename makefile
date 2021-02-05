@@ -2,7 +2,7 @@
 # TaxicabSim
 #
 # @file
-# @version 0.1
+# @version 1
 #
 CC = -gcc
 CFLAGS := -D_GNU_SOURCE -std=c89 -pedantic -g -DDEBUG=0
