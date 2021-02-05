@@ -4,32 +4,29 @@ Cell (*mapptr)[][SO_HEIGHT];
 volatile int executing = 1;
 Data simData;
 
-void cellsData(Cell (*map)[][SO_HEIGHT], int length) {
-  int x, y, n, cnt, tmpI;
-  Point tmp;
-  int usage[length];
-  tmp.x = 0;
-  tmp.y = 0;
-  for (n = 0; n < length; n++) {
-    usage[n] = 0;
-  }
+void cellsData(Cell (*map)[][SO_HEIGHT]) {
+  int x, y, n, cnt, tmpIB, tmpIA;
+  Point tmpB, tmpT;
+  int usage[simData.topCells];
   for (y = 0; y < SO_HEIGHT; y++) {
-    for (x = 0; x < SO_WIDTH; x++) {
+    for (x = 0; x < SO_HEIGHT; x++) {
       if ((*map)[x][y].state == FREE) {
-        for (n = 0; n < length; n++) {
+        for (n = 0; n < simData.topCells; n++) {
           if ((*map)[x][y].visits > usage[n]) {
-            if (n != (length - 1) && n > 0) {
-              for (cnt = 0; cnt + n < length; cnt++) {
-                simData.cellsWinner[cnt + n].y = tmp.y;
-                simData.cellsWinner[cnt + n].x = tmp.x;
-                tmp.x = simData.cellsWinner[cnt + n + 1].x;
-                tmp.y = simData.cellsWinner[cnt + n + 1].y;
-                tmpI = usage[cnt + n + 1];
-                simData.cellsWinner[cnt + n + 1].y =
-                    simData.cellsWinner[cnt + n].y;
-                simData.cellsWinner[cnt + n + 1].x =
-                    simData.cellsWinner[cnt + n].x;
-                usage[cnt + n + 1] = usage[cnt + n];
+            if(n != (simData.topCells-1) && n>0){
+              tmpT.x = simData.cellsWinner[n].x = x;
+              tmpT.y = simData.cellsWinner[n].y = y;
+              tmpIA = usage[n];
+              for (cnt = 0; cnt + n < simData.topCells; cnt++) {
+                tmpB.x = simData.cellsWinner[cnt+n+1].x;
+                tmpB.y = simData.cellsWinner[cnt+n+1].y;
+                tmpIB = usage[cnt+n+1];
+             	simData.cellsWinner[cnt+n+1].y = tmpT.y;
+                simData.cellsWinner[cnt+n+1].x = tmpT.x;
+                usage[cnt+n+1] = tmpIA;
+                tmpT.x = tmpB.x; 
+                tmpT.y = tmpB.y;
+                tmpIA = tmpIB;
               }
             }
             simData.cellsWinner[n].x = x;
@@ -133,11 +130,10 @@ void printReport(Cell (*map)[][SO_HEIGHT]) {
       switch ((*map)[x][y].state) {
       case FREE:
         n = 0;
-        while (n < simData.topCells &&
-               (x != simData.cellsWinner[n].y || y != simData.cellsWinner[n].x))
+        while (n < simData.topCells && !(x == simData.cellsWinner[n].x && y == simData.cellsWinner[n].y))
           n++;
         if (x == simData.cellsWinner[n].x && y == simData.cellsWinner[n].y)
-          printf(ANSI_COLOR_RED "[%d]" ANSI_COLOR_RESET, (*map)[x][y].visits);
+          printf(ANSI_COLOR_RED "[%d]" ANSI_COLOR_RESET, n);
         else
           printf("[ ]");
         break;
@@ -147,9 +143,9 @@ void printReport(Cell (*map)[][SO_HEIGHT]) {
       case HOLE:
         printf("[#]");
       }
-    }
-    printf("\n");
-  }
+   }
+   printf("\n");
+ }
 }
 
 int main() {
