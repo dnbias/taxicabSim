@@ -38,10 +38,6 @@ void cellsData(Cell (*map)[][SO_HEIGHT]) {
       }
     }
   }
-  for (n = 0; n < length; n++) {
-    printf("->n: %d x: %d, y: %d, v: %d; |", n, simData.cellsWinner[n].x,
-           simData.cellsWinner[n].y, usage[n]);
-  }
 }
 
 void printMap(Cell (*map)[][SO_HEIGHT]) {
@@ -111,7 +107,7 @@ void updateData(long pid, taxiData *data) {
 }
 
 void printReport(Cell (*map)[][SO_HEIGHT]) {
-  int x, y, n;
+  int x, y, n, db;
   printf("========== Simulation Success ==========\n");
   printf("Statistics:\n");
   printf("\tTrips:\n");
@@ -129,13 +125,15 @@ void printReport(Cell (*map)[][SO_HEIGHT]) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
       case FREE:
-        n = 0;
-        while (n < simData.topCells && !(x == simData.cellsWinner[n].x && y == simData.cellsWinner[n].y))
-          n++;
-        if (x == simData.cellsWinner[n].x && y == simData.cellsWinner[n].y)
-          printf(ANSI_COLOR_RED "[%d]" ANSI_COLOR_RESET, n);
-        else
+        db = 0;
+        for(n = 0; n < simData.topCells; n++)
+        	if(simData.cellsWinner[n].x == x && simData.cellsWinner[n].y == y){
+        	  db = 1;
+        	  printf("[%d]", n);
+        	}
+        if(db==0){
           printf("[ ]");
+        }
         break;
       case SOURCE:
         printf("[S]");
@@ -237,7 +235,7 @@ int main() {
     msgctl(qid, IPC_STAT, &q_ds);
   }
   simData.tripsNotServed = simData.requests - simData.trips;
-  cellsData(mapptr, simData.topCells);
+  cellsData(mapptr);
   printReport(mapptr);
 
   if (shmctl(shmid_map, IPC_RMID, NULL)) {
