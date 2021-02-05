@@ -205,7 +205,7 @@ void printReport(Cell (*map)[][SO_HEIGHT]) {
   printf("\t    \t%d            \t%ld ms     \t%d\n", simData.maxDistance,
          (simData.maxTime.tv_sec * 1000 + simData.maxTime.tv_usec / 1000),
          simData.maxTrips);
-  printf("\tCells:\n");
+  printf("\tTop Cells:\n");
   printf("\t\tvisits \tx \ty\n");
   for (n = 0; n < simData.topCells; n++) {
     printf(

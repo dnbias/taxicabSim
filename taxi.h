@@ -18,11 +18,7 @@ Point getNearSource();
 
 void checkTimeout();
 
-void sourceSetFree(int n);
-
-int sourceFree(int n);
-
-int nSource(int *source_id);
+void printRep();
 
 typedef struct {
   int distance;

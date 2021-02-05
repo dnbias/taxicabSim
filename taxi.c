@@ -1,4 +1,5 @@
 #include "taxi.h"
+
 int shmid, source_id, master_qid, writers, mutex, sem, semSource;
 Cell (*mapptr)[][SO_HEIGHT];
 Point (*sourcesList_ptr)[];
@@ -409,7 +410,7 @@ void moveTo(Point dest) { /*pathfinding*/
   } /*END-while*/
   gettimeofday(&end, NULL);
   data_msg.data.maxTimeInTrip.tv_sec = (end.tv_sec - start.tv_sec);
-  data_msg.data.maxTimeInTrip.tv_usec = (end.tv_usec - start.tv_usec);
+  data_msg.data.maxTimeInTrip.tv_usec = labs(end.tv_usec - start.tv_usec);
   if ((data_msg.data.distance - oldDistance) >
       data_msg.data.maxDistanceInTrip) {
     data_msg.data.maxDistanceInTrip = data_msg.data.distance - oldDistance;
@@ -496,14 +497,7 @@ void checkTimeout() {
     shmdt(readers);
     msgsnd(master_qid, &data_msg, sizeof(taxiData), 0);
     logmsg("Graceful exit successful", DB);
-    if (DEBUG)
-      printf(
-          "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
-          "clients: %i, tripsSuccess: %i, abort: %i;\n\n",
-          data_msg.type, data_msg.data.distance,
-          data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
-          data_msg.data.clients, data_msg.data.tripsSuccess,
-          data_msg.data.abort);
+    printRep();
     kill(getppid(), SIGUSR1);
     exit(0);
   } else
@@ -520,15 +514,7 @@ void handler(int sig) {
     shmdt(readers);
     msgsnd(master_qid, &data_msg, sizeof(taxiData), IPC_NOWAIT);
     logmsg("Graceful exit successful", DB);
-    if (DEBUG)
-      printf(
-          ANSI_COLOR_MAGENTA
-          "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
-          "clients: %i, tripsSuccess: %i, abort: %i;\n\n" ANSI_COLOR_RESET,
-          data_msg.type, data_msg.data.distance,
-          data_msg.data.maxDistanceInTrip, data_msg.data.maxTimeInTrip.tv_usec,
-          data_msg.data.clients, data_msg.data.tripsSuccess,
-          data_msg.data.abort);
+    printRep();
     exit(0);
   case SIGQUIT:
     logmsg("SIGQUIT", DB);
@@ -545,4 +531,17 @@ void handler(int sig) {
     logmsg("Received SIGUSR2", DB);
     break;
   }
+}
+
+void printRep() {
+  if (DEBUG)
+    printf(
+        ANSI_COLOR_MAGENTA
+        "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld "
+        "ms,\n"
+        "clients: %i, tripsSuccess: %i, abort: %i;\n\n" ANSI_COLOR_RESET,
+        data_msg.type, data_msg.data.distance, data_msg.data.maxDistanceInTrip,
+        (data_msg.data.maxTimeInTrip.tv_sec * 1000 +
+         data_msg.data.maxTimeInTrip.tv_usec / 1000),
+        data_msg.data.clients, data_msg.data.tripsSuccess, data_msg.data.abort);
 }
