@@ -1,18 +1,17 @@
 #include "master.h"
+#include "general.h"
 
 Cell (*mapptr)[][SO_HEIGHT];
 volatile int executing = 1;
 Data simData;
+int shmid_map, qid, source_qid;
 
 int main() {
-  char *args[2];
-  char *envp[1];
-  char id_buffer[30];
-  int shmid_map, qid, source_qid, t, sem_idM, buffer;
-  key_t shmkey, qkey, semkeyM;
+  char *args[2], *envp[1];
+  int t;
+  key_t shmkey, qkey;
   dataMessage msg;
   sourceMessage msg_source;
-  /*taxiData dataBuffer;*/
   struct msqid_ds q_ds;
   struct sigaction act;
   union semun argM;
@@ -28,34 +27,42 @@ int main() {
   sigaction(SIGTSTP, &act, 0);
 
   if ((shmkey = ftok("./makefile", 'm')) < 0) {
-    EXIT_ON_ERROR
+    logmsg("Error: ftok", RUNTIME);
+    raise(SIGQUIT);
   }
   if ((shmid_map = shmget(shmkey, SO_WIDTH * SO_HEIGHT * sizeof(Cell),
                           IPC_CREAT | 0666)) < 0) {
-    EXIT_ON_ERROR
+    logmsg("Error: shmget map", RUNTIME);
+    raise(SIGQUIT);
   }
   if ((void *)(mapptr = shmat(shmid_map, NULL, 0)) < (void *)0) {
-    EXIT_ON_ERROR
+    logmsg("Error: shmat map", RUNTIME);
+    raise(SIGQUIT);
   }
   /*  queues for comunication with other modules */
   if ((qkey = ftok("./makefile", 's')) < 0) {
-    EXIT_ON_ERROR
+    logmsg("Error: ftok", RUNTIME);
+    raise(SIGQUIT);
   }
   if ((source_qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
-    EXIT_ON_ERROR
+    logmsg("Error: msgget source", RUNTIME);
+    raise(SIGQUIT);
   }
 
   if ((qkey = ftok("./makefile", 'd')) < 0) {
-    EXIT_ON_ERROR
+    logmsg("Error: ftok", RUNTIME);
+    raise(SIGQUIT);
   }
   if ((qid = msgget(qkey, IPC_CREAT | 0644)) < 0) {
-    EXIT_ON_ERROR
+    logmsg("Error: msgget", RUNTIME);
+    raise(SIGQUIT);
   }
 
   logmsg("Launching Generator", DB);
   switch (fork()) {
   case -1:
-    EXIT_ON_ERROR
+    logmsg("Error: fork", RUNTIME);
+    raise(SIGQUIT);
   case 0:
     args[0] = "generator";
     args[1] = NULL;
@@ -79,7 +86,7 @@ int main() {
   while (q_ds.msg_qnum > 0) {
     if (msgrcv(source_qid, &msg_source, sizeof(int), 0, IPC_NOWAIT) == -1) {
       perror("msgrcv");
-      EXIT_ON_ERROR
+      raise(SIGQUIT);
     }
     simData.requests += msg_source.requests;
     msgctl(source_qid, IPC_STAT, &q_ds);
@@ -88,7 +95,7 @@ int main() {
   while (q_ds.msg_qnum > 0) {
     if (msgrcv(qid, &msg, sizeof(taxiData), 0, IPC_NOWAIT) == -1) {
       perror("msgrcv");
-      EXIT_ON_ERROR
+      raise(SIGQUIT);
     }
     updateData(msg.type, &msg.data);
     msgctl(qid, IPC_STAT, &q_ds);
@@ -97,18 +104,9 @@ int main() {
   cellsData(mapptr, simData.topCells);
   printReport(mapptr);
 
-  if (shmctl(shmid_map, IPC_RMID, NULL)) {
-    printf("\nError in shmctl: map,\n");
-    EXIT_ON_ERROR
-  }
-  if (msgctl(source_qid, IPC_RMID, NULL) == -1) {
-    printf("\nError in shmctl: map,\n");
-    EXIT_ON_ERROR
-  }
-  if (msgctl(qid, IPC_RMID, NULL) == -1) {
-    printf("\nError in shmctl: map,\n");
-    EXIT_ON_ERROR
-  }
+  shmctl(shmid_map, IPC_RMID, NULL);
+  msgctl(source_qid, IPC_RMID, NULL);
+  msgctl(qid, IPC_RMID, NULL);
   free(simData.cellsWinner);
   logmsg("Quitting", DB);
   exit(0);
@@ -120,7 +118,7 @@ void cellsData(Cell (*map)[][SO_HEIGHT], int l) {
     usage[n] = 0;
   }
   for (y = 0; y < SO_HEIGHT; y++) {
-    for (x = 0; x < SO_HEIGHT; x++) {
+    for (x = 0; x < SO_WIDTH; x++) {
       if ((*map)[x][y].state == FREE) {
         for (n = 0; n < l; n++) {
           if ((*map)[x][y].visits > usage[n]) {
@@ -211,7 +209,9 @@ void printReport(Cell (*map)[][SO_HEIGHT]) {
         db = 0;
         for (n = 0; n < simData.topCells; n++) {
           if ((*simData.cellsWinner)[n].x == x &&
-              (*simData.cellsWinner)[n].y == y) {
+              (*simData.cellsWinner)[n].y == y &&
+              (*map)[(*simData.cellsWinner)[n].x][(*simData.cellsWinner)[n].y]
+                      .visits > 0) {
             db = 1;
             printf(ANSI_COLOR_RED "[ ]" ANSI_COLOR_RESET);
           }
@@ -245,8 +245,12 @@ void handler(int sig) {
     executing = 0;
     break;
   case SIGQUIT:
-    executing = 0;
-    break;
+    logmsg("SIGQUIT", DB);
+    shmctl(shmid_map, IPC_RMID, NULL);
+    msgctl(source_qid, IPC_RMID, NULL);
+    msgctl(qid, IPC_RMID, NULL);
+    free(simData.cellsWinner);
+    exit(0);
   case SIGUSR1:
     break;
   case SIGUSR2:

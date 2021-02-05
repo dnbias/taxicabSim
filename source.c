@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
   srand(time(NULL) ^ (getpid() << 16));
   sscanf(argv[1], "%ld", &msg.type);
   msgInterval.tv_sec = 0;
-  msgInterval.tv_nsec = 1000000;
+  msgInterval.tv_nsec = 10000000;
   msg_master.type = 1;
   msg_master.requests = 0;
   /********** END-INIT **********/
@@ -158,7 +158,7 @@ void handler(int sig) {
     logmsg("Finishing up", SILENCE);
     shmdt(mapptr);
     shmdt(readers);
-    msgsnd(master_qid, &msg_master, sizeof(int), 0);
+    msgsnd(master_qid, &msg_master, sizeof(int), 1);
     logmsg("Graceful exit successful", DB);
     exit(0);
   case SIGUSR1:

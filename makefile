@@ -5,7 +5,7 @@
 # @version 1
 #
 CC = -gcc
-CFLAGS := -D_GNU_SOURCE -std=c89 -pedantic -g -DDEBUG=0
+CFLAGS := -D_GNU_SOURCE -std=c89 -pedantic -g -DDEBUG=1
 
 taxicab: master.o master.h generator source taxi cleanall general.h generator.h source.h taxi.h
 	$(CC) $(CFLAGS) -o taxicab master.c

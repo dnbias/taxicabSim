@@ -4,10 +4,11 @@
 
 Config conf;
 int shmid_sources, shmid_map, shmid_ex, shmid_readers, qid, master_qid, writers,
-    sem, mutex, semSource, executing = 1;
+    sem, mutex, executing = 1;
 Point (*sourcesList_ptr)[];
 Cell (*mapptr)[][SO_HEIGHT];
 int *readers, dead_taxis = 0;
+MasterMessage topCells;
 
 int main(int argc, char **argv) {
   int i, cnt;
@@ -19,7 +20,7 @@ int main(int argc, char **argv) {
   struct semid_ds sem_ds, writers_ds, source_ds;
   struct sembuf buf;
   struct msqid_ds qds;
-  MasterMessage topCells;
+
   /************ INIT ************/
 
   memset(&act, 0, sizeof(act));
@@ -260,6 +261,10 @@ void parseConf(Config *conf) {
       break;
     default:
       fscanf(in, "%d\n", &n);
+      if (n < 0) {
+        logmsg("Configurazione non valida.", RUNTIME);
+        kill(0, SIGINT);
+      }
       if (strncmp(s, "SO_TAXI", 7) == 0) {
         conf->SO_TAXI = n;
       } else if (strncmp(s, "SO_SOURCES", 10) == 0) {
@@ -283,7 +288,6 @@ void parseConf(Config *conf) {
       }
     }
   }
-
   fclose(in);
 }
 
@@ -295,9 +299,15 @@ int checkNoAdiacentHoles(Cell (*matrix)[][SO_HEIGHT], int x, int y) {
   int b = 0;
   int i, j;
   time_t startTime;
-
+  startTime = time(NULL);
   for (i = 0; i < 3; i++) {
     for (j = 0; j < 3; j++) {
+      if (time(NULL) - startTime > 1) {
+        logmsg("You selected too many holes to fit the map:\n\t\tRetry "
+               "with less.\nQuitting...",
+               RUNTIME);
+        kill(0, SIGINT);
+      }
       if ((x + i - 1) >= 0 && (x + i - 1) <= SO_WIDTH && (y + j - 1) >= 0 &&
           (y + j - 1) <= SO_HEIGHT &&
           (*matrix)[x + i - 1][y + j - 1].state == HOLE) {
@@ -348,6 +358,7 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
   }
   startTime = time(NULL); /* To stop the user from using too many holes */
   for (i = conf->SO_HOLES; i > 0; i--) {
+    printf("%d", i);
     if (time(NULL) - startTime > 2) {
       logmsg("You selected too many holes to fit the map:\n\t\tRetry "
              "with less.\nQuitting...",
@@ -358,12 +369,14 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
     y = rand() % SO_HEIGHT;
     if (checkNoAdiacentHoles(matrix, x, y) == 0) {
       (*matrix)[x][y].state = HOLE;
+      logmsg("HOLE", RUNTIME);
     } else {
       i++;
     }
   }
   startTime = time(NULL); /* To stop the user from using too many sources */
   for (i = 0; i < conf->SO_SOURCES; i++) {
+    logmsg("HOLE", RUNTIME);
     if (time(NULL) - startTime > 1) {
       for (x = 0; x < SO_WIDTH; x++) {
         for (y = 0; y < SO_HEIGHT; y++) {
@@ -415,7 +428,7 @@ void printMap(Cell (*map)[][SO_HEIGHT]) {
         printf("[#]");
       }
     }
-    printf("\n");
+    printf("\n\n");
   }
 }
 
@@ -493,7 +506,7 @@ void handler(int sig) {
     if (DEBUG)
       printf("================ Closing ===============\n");
     executing = 0;
-
+    msgsnd(master_qid, &topCells, sizeof(int), IPC_NOWAIT);
     while (wait(NULL) > 0) {
     }
     shmdt(mapptr);
