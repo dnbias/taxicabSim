@@ -115,32 +115,24 @@ int main() {
 }
 
 void cellsData(Cell (*map)[][SO_HEIGHT], int l) {
-  int x, y, n, cnt, tmpIB, tmpIA, usage[SO_WIDTH * SO_HEIGHT];
+  int x, y, n, i, tmp, cnt, tmpIB, tmpIA, usage[SO_WIDTH * SO_HEIGHT];
   Point tmpB, tmpT;
+  for (n = 0; n < SO_WIDTH * SO_HEIGHT; n++) {
+    usage[n] = 0;
+  }
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_HEIGHT; x++) {
       if ((*map)[x][y].state == FREE) {
         for (n = 0; n < l; n++) {
           if ((*map)[x][y].visits > usage[n]) {
-            if (n != (l - 1) && n > 0) {
-              tmpT.x = (*simData.cellsWinner)[n].x = x;
-              tmpT.y = (*simData.cellsWinner)[n].y = y;
-              tmpIA = usage[n];
-              for (cnt = 0; cnt + n < l; cnt++) {
-                tmpB.x = (*simData.cellsWinner)[cnt + n + 1].x;
-                tmpB.y = (*simData.cellsWinner)[cnt + n + 1].y;
-                tmpIB = usage[cnt + n + 1];
-                (*simData.cellsWinner)[cnt + n + 1].y = tmpT.y;
-                (*simData.cellsWinner)[cnt + n + 1].x = tmpT.x;
-                usage[cnt + n + 1] = tmpIA;
-                tmpT.x = tmpB.x;
-                tmpT.y = tmpB.y;
-                tmpIA = tmpIB;
-              }
+            tmp = n;
+            for (i = n; i < l; i++) {
+              if (usage[i] < usage[tmp])
+                tmp = i;
             }
-            (*simData.cellsWinner)[n].x = x;
-            (*simData.cellsWinner)[n].y = y;
-            usage[n] = (*map)[x][y].visits;
+            usage[tmp] = (*map)[x][y].visits;
+            (*simData.cellsWinner)[tmp].x = x;
+            (*simData.cellsWinner)[tmp].y = y;
             break;
           }
         }
