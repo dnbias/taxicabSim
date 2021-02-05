@@ -229,23 +229,23 @@ int isFree(Cell (*map)[][SO_HEIGHT], Point p)
 #+BEGIN_SRC C
 void semWait(Point p, int sem)
 #+END_SRC
-- Genera un segnale d'attesa per i semafori.
+- Wait sul =sem[SO_WIDTH*p.y + p.x]= semaforo del set.
 #+BEGIN_SRC C
 void semSignal(Point p, int sem)
 #+END_SRC
-- Genera un segnale di partenza per i semafori.
+- Signal sul =sem[SO_WIDTH*p.y + p.x]= semaforo del set.
 #+BEGIN_SRC C
 void semSync(int sem)
 #+END_SRC
-- Crea un segnale di sincronizzazione per i semafori alla loro partenza.
+- Wait for Zero sul semaforo.
 #+BEGIN_SRC C
 void lock(int sem)
 #+END_SRC
-- Incrementa il valore del semaforo di sincronizzazione, portandolo a 1.
+- Incrementa il valore del semaforo mutex, portandolo a 1.
 #+BEGIN_SRC C
 void unlock(int sem)
 #+END_SRC
-- Diminuisce il valore del semaforo di sincronizzazione, portandolo a -1.
+- Diminuisce il valore del semaforo mutex, portandolo a -1.
 ** Configurazione
 Il programma utilizza dieci parametri letti a tempo di esecuzione, da file taxicab.con, e due a tempo di compilazione, da general.h
 
