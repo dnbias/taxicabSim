@@ -522,7 +522,7 @@ void handler(int sig) {
     logmsg("Graceful exit successful", DB);
     if (DEBUG)
       printf(
-          ANSI_COLOR_MAGENTA
+          ANSI_COLOR_RED
           "\ntaxiN°: %ld, distance: %i, MAXdistance: %i, MAXtimeintrips: %ld, "
           "clients: %i, tripsSuccess: %i, abort: %i;\n\n" ANSI_COLOR_RESET,
           data_msg.type, data_msg.data.distance,

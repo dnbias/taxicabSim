@@ -37,6 +37,5 @@ typedef struct {
   Point cellsWinner[];
 } Data;
 
-void cellsData();
 
 #endif

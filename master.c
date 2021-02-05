@@ -10,12 +10,11 @@ void cellsData(Cell (*map)[][SO_HEIGHT]) {
   int usage[simData.topCells];
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_HEIGHT; x++) {
-      if ((*map)[x][y].state == FREE) {
         for (n = 0; n < simData.topCells; n++) {
           if ((*map)[x][y].visits > usage[n]) {
-            if(n != (simData.topCells-1) && n>0){
-              tmpT.x = simData.cellsWinner[n].x = x;
-              tmpT.y = simData.cellsWinner[n].y = y;
+            if(n != (simData.topCells-1)){
+              tmpT.x = simData.cellsWinner[n].x;
+              tmpT.y = simData.cellsWinner[n].y;
               tmpIA = usage[n];
               for (cnt = 0; cnt + n < simData.topCells; cnt++) {
                 tmpB.x = simData.cellsWinner[cnt+n+1].x;
@@ -35,7 +34,6 @@ void cellsData(Cell (*map)[][SO_HEIGHT]) {
             break;
           }
         }
-      }
     }
   }
 }
@@ -122,24 +120,32 @@ void printReport(Cell (*map)[][SO_HEIGHT]) {
          (simData.maxTime.tv_sec * 1000 + simData.maxTime.tv_usec / 1000),
          simData.maxTrips);
   printf("\tCells:\n");
-  printf("\t\tvisits \tx \ty\n");
+  printf("\t\tvisits \tx \ty \tstate\n");
   for(n = 0; n < simData.topCells; n++){
-    printf("\t\t%d \t%d \t%d \n", (*map)[simData.cellsWinner[n].x][simData.cellsWinner[n].y].visits, simData.cellsWinner[n].x, 
+     switch ((*map)[simData.cellsWinner[n].x][simData.cellsWinner[n].y].state) {
+      case FREE:
+        printf("\t\t%d \t%d \t%d \tFREE\n", (*map)[simData.cellsWinner[n].x][simData.cellsWinner[n].y].visits, simData.cellsWinner[n].x, 
     			simData.cellsWinner[n].y);
+        break;
+      case SOURCE:
+        printf("\t\t%d \t%d \t%d \tSOURCE\n", (*map)[simData.cellsWinner[n].x][simData.cellsWinner[n].y].visits, simData.cellsWinner[n].x, 
+    			simData.cellsWinner[n].y);
+        break;
+    }
   }
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
       case FREE:
         db = 0;
-        for(n = 0; n < simData.topCells; n++){
+        for(n = 0; n < simData.topCells; n++)
         	if(simData.cellsWinner[n].x == x && simData.cellsWinner[n].y == y){
         	  db = 1;
-        	  printf( ANSI_COLOR_RED "[ ]" ANSI_COLOR_RESET);
-        	}
         }
-        if(db == 0){
+       if(db == 0){
           printf("[ ]");
+        }else{
+          printf( ANSI_COLOR_RED "[*]" ANSI_COLOR_RESET);
         }
         break;
       case SOURCE:
@@ -152,7 +158,6 @@ void printReport(Cell (*map)[][SO_HEIGHT]) {
    printf("\n");
  }
 }
-
 int main() {
   char *args[2];
   char *envp[1];
