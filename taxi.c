@@ -485,7 +485,7 @@ void checkTimeout() {
   gettimeofday(&elapsed, NULL);
   s = elapsed.tv_sec - timer.tv_sec;
   u = elapsed.tv_usec - timer.tv_usec;
-  n = s * 1000 + (u / 10 ^ 3);
+  n = s * 1000000000 + (u * 1000);
   if (n >= timeout) {
     logmsg("Timedout", DB);
     (*mapptr)[position.x][position.y].traffic--;
