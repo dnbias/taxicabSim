@@ -115,8 +115,7 @@ int main() {
 }
 
 void cellsData(Cell (*map)[][SO_HEIGHT], int l) {
-  int x, y, n, i, tmp, cnt, tmpIB, tmpIA, usage[SO_WIDTH * SO_HEIGHT];
-  Point tmpB, tmpT;
+  int x, y, n, i, tmp, usage[SO_WIDTH * SO_HEIGHT];
   for (n = 0; n < SO_WIDTH * SO_HEIGHT; n++) {
     usage[n] = 0;
   }
