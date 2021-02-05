@@ -515,6 +515,8 @@ void handler(int sig) {
     msgsnd(master_qid, &data_msg, sizeof(taxiData), IPC_NOWAIT);
     logmsg("Graceful exit successful", DB);
     printRep();
+
+
     exit(0);
   case SIGQUIT:
     logmsg("SIGQUIT", DB);

@@ -165,7 +165,7 @@ void handler(int sig) {
     logmsg("Received SIGUSR1", RUNTIME);
     break;
   case SIGTSTP:
-    logmsg("Received SIGSTOP", RUNTIME);
+    logmsg("Received SIGTSTP", RUNTIME);
     userRequest();
     break;
   }
