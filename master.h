@@ -34,8 +34,18 @@ typedef struct {
   int maxDistance;
   long distanceWinner;
   int topCells;
-  Point cellsWinner[];
+  Point (*cellsWinner)[];
 } Data;
 
+void cellsData(Cell (*)[][SO_HEIGHT], int);
 
+void updateData(long, taxiData *);
+
+void printMap(Cell (*)[][SO_HEIGHT]);
+
+void printReport(Cell (*)[][SO_HEIGHT]);
+
+void logmsg(char *, enum Level);
+
+void handler(int);
 #endif

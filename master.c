@@ -4,162 +4,6 @@ Cell (*mapptr)[][SO_HEIGHT];
 volatile int executing = 1;
 Data simData;
 
-void cellsData(Cell (*map)[][SO_HEIGHT]) {
-  int x, y, n, cnt, tmpIB, tmpIA, usage[SO_WIDTH*SO_HEIGHT];
-  Point tmpB, tmpT;
-  for (y = 0; y < SO_HEIGHT; y++) {
-    for (x = 0; x < SO_WIDTH; x++) {
-        for (n = 0; n < simData.topCells; n++) {
-          if ((*map)[x][y].visits > usage[n]) {
-            if(n != (simData.topCells-1)){
-              tmpT.x = simData.cellsWinner[n].x;
-              tmpT.y = simData.cellsWinner[n].y;
-              tmpIA = usage[n];
-              for (cnt = 0; cnt + n < simData.topCells; cnt++) {
-                tmpB.x = simData.cellsWinner[cnt+n+1].x;
-                tmpB.y = simData.cellsWinner[cnt+n+1].y;
-                tmpIB = usage[cnt+n+1];
-             	simData.cellsWinner[cnt+n+1].y = tmpT.y;
-                simData.cellsWinner[cnt+n+1].x = tmpT.x;
-                usage[cnt+n+1] = tmpIA;
-                tmpT.x = tmpB.x; 
-                tmpT.y = tmpB.y;
-                tmpIA = tmpIB;
-              }
-            }
-            simData.cellsWinner[n].x = x;
-            simData.cellsWinner[n].y = y;
-            usage[n] = (*map)[x][y].visits;
-            break;
-          }
-        }
-    }
-  }
-}
-
-void printMap(Cell (*map)[][SO_HEIGHT]) {
-  int x, y;
-  for (y = 0; y < SO_HEIGHT; y++) {
-    for (x = 0; x < SO_WIDTH; x++) {
-      switch ((*map)[x][y].state) {
-      case FREE:
-        printf("[%d]", (*map)[x][y].traffic);
-        break;
-      case SOURCE:
-        printf("[S]");
-        break;
-      case HOLE:
-        printf("[#]");
-      }
-    }
-    printf("\n");
-  }
-  printf("\n");
-}
-void handler(int sig) {
-  switch (sig) {
-  case SIGINT:
-    executing = 0;
-    break;
-  case SIGALRM:
-    executing = 0;
-    break;
-  case SIGQUIT:
-    executing = 0;
-    break;
-  case SIGUSR1:
-    break;
-  case SIGUSR2:
-    executing = 0;
-    break;
-  case SIGTSTP:
-    break;
-  }
-}
-
-void logmsg(char *message, enum Level l) {
-  if (l <= DEBUG) {
-    printf("[master-%d] %s\n", getpid(), message);
-  }
-}
-void updateData(long pid, taxiData *data) {
-  simData.trips = simData.trips + (*data).clients;
-  simData.tripsSuccess = simData.tripsSuccess + (*data).tripsSuccess;
-
-  if (simData.maxTrips < (*data).clients) {
-    simData.maxTrips = (*data).clients;
-    simData.tripsWinner = pid;
-  }
-  if (simData.maxTime.tv_sec <= (*data).maxTimeInTrip.tv_sec) {
-    if (simData.maxTime.tv_usec < (*data).maxTimeInTrip.tv_usec) {
-      simData.maxTime.tv_sec = (*data).maxTimeInTrip.tv_sec;
-      simData.maxTime.tv_usec = (*data).maxTimeInTrip.tv_usec;
-      simData.timeWinner = pid;
-    }
-  }
-  if (simData.maxDistance < (*data).distance) {
-    simData.maxDistance = (*data).distance;
-    simData.distanceWinner = pid;
-  }
-}
-
-void printReport(Cell (*map)[][SO_HEIGHT]) {
-  int x, y, n, db;
-  printf("========== Simulation Success ==========\n");
-  printf("Statistics:\n");
-  printf("\tTrips:\n");
-  printf("\t   \tSuccessful \tNot Served \tAborts\n");
-  printf("\t   \t%d         \t%d         \t%d\n", simData.tripsSuccess,
-         simData.tripsNotServed, (simData.trips - simData.tripsSuccess));
-  printf("\tTaxi:\n");
-  printf("\t\tMost Distance \tLongest Trip \tMost Trips\n");
-  printf("\tpid:\t%ld       \t%ld          \t%ld\n", simData.distanceWinner,
-         simData.timeWinner, simData.tripsWinner);
-  printf("\t    \t%d            \t%ld ms     \t%d\n", simData.maxDistance,
-         (simData.maxTime.tv_sec * 1000 + simData.maxTime.tv_usec / 1000),
-         simData.maxTrips);
-  printf("\tCells:\n");
-  printf("\t\tvisits \tx \ty \tstate\n");
-  for(n = 0; n < simData.topCells; n++){
-     switch ((*map)[simData.cellsWinner[n].x][simData.cellsWinner[n].y].state) {
-      case FREE:
-        printf("\t\t%d \t%d \t%d \tFREE\n", (*map)[simData.cellsWinner[n].x][simData.cellsWinner[n].y].visits, simData.cellsWinner[n].x, 
-    			simData.cellsWinner[n].y);
-        break;
-      case SOURCE:
-        printf("\t\t%d \t%d \t%d \tSOURCE\n", (*map)[simData.cellsWinner[n].x][simData.cellsWinner[n].y].visits, simData.cellsWinner[n].x, 
-    			simData.cellsWinner[n].y);
-        break;
-      case HOLE:
-        printf("[#]");
-        break;
-    }
-  }
-  for (y = 0; y < SO_HEIGHT; y++) {
-    for (x = 0; x < SO_WIDTH; x++) {
-      switch ((*map)[x][y].state) {
-      case FREE:
-        db = 0;
-        for(n = 0; n < simData.topCells; n++)
-        	if(simData.cellsWinner[n].x == x && simData.cellsWinner[n].y == y){
-        	  db = 1;
-        }
-       if(db == 0){
-          printf("[ ]");
-        }else{
-          printf( ANSI_COLOR_RED "[*]" ANSI_COLOR_RESET);
-        }
-        break;
-      case SOURCE:
-        printf("[S]");
-        break;
-      case HOLE:
-        printf("[#]");
-      }
-   }
-   printf("\n");
- }
-}
 int main() {
   char *args[2];
   char *envp[1];
@@ -220,6 +64,7 @@ int main() {
   }
   msgrcv(source_qid, &msg_source, sizeof(int), 2, 0);
   simData.topCells = msg_source.requests;
+  simData.cellsWinner = malloc(sizeof(Point) * simData.topCells);
   t = time(NULL);
   while (executing) {
     if ((time(NULL) - t) >= 1) {
@@ -249,7 +94,7 @@ int main() {
     msgctl(qid, IPC_STAT, &q_ds);
   }
   simData.tripsNotServed = simData.requests - simData.trips;
-  cellsData(mapptr);
+  cellsData(mapptr, simData.topCells);
   printReport(mapptr);
 
   if (shmctl(shmid_map, IPC_RMID, NULL)) {
@@ -264,7 +109,150 @@ int main() {
     printf("\nError in shmctl: map,\n");
     EXIT_ON_ERROR
   }
-
+  free(simData.cellsWinner);
   logmsg("Quitting", DB);
   exit(0);
+}
+
+void cellsData(Cell (*map)[][SO_HEIGHT], int l) {
+  int x, y, n, i, tmp, usage[SO_WIDTH * SO_HEIGHT];
+  for (n = 0; n < SO_WIDTH * SO_HEIGHT; n++) {
+    usage[n] = 0;
+  }
+  for (y = 0; y < SO_HEIGHT; y++) {
+    for (x = 0; x < SO_HEIGHT; x++) {
+      if ((*map)[x][y].state == FREE) {
+        for (n = 0; n < l; n++) {
+          if ((*map)[x][y].visits > usage[n]) {
+            tmp = n;
+            for (i = n; i < l; i++) {
+              if (usage[i] < usage[tmp])
+                tmp = i;
+            }
+            usage[tmp] = (*map)[x][y].visits;
+            (*simData.cellsWinner)[tmp].x = x;
+            (*simData.cellsWinner)[tmp].y = y;
+            break;
+          }
+        }
+      }
+    }
+  }
+}
+
+void updateData(long pid, taxiData *data) {
+  simData.trips = simData.trips + (*data).clients;
+  simData.tripsSuccess = simData.tripsSuccess + (*data).tripsSuccess;
+
+  if (simData.maxTrips < (*data).clients) {
+    simData.maxTrips = (*data).clients;
+    simData.tripsWinner = pid;
+  }
+  if (simData.maxTime.tv_sec <= (*data).maxTimeInTrip.tv_sec) {
+    if (simData.maxTime.tv_usec < (*data).maxTimeInTrip.tv_usec) {
+      simData.maxTime.tv_sec = (*data).maxTimeInTrip.tv_sec;
+      simData.maxTime.tv_usec = (*data).maxTimeInTrip.tv_usec;
+      simData.timeWinner = pid;
+    }
+  }
+  if (simData.maxDistance < (*data).distance) {
+    simData.maxDistance = (*data).distance;
+    simData.distanceWinner = pid;
+  }
+}
+
+void printMap(Cell (*map)[][SO_HEIGHT]) {
+  int x, y;
+  for (y = 0; y < SO_HEIGHT; y++) {
+    for (x = 0; x < SO_WIDTH; x++) {
+      switch ((*map)[x][y].state) {
+      case FREE:
+        printf("[%d]", (*map)[x][y].traffic);
+        break;
+      case SOURCE:
+        printf("[S]");
+        break;
+      case HOLE:
+        printf("[#]");
+      }
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
+void printReport(Cell (*map)[][SO_HEIGHT]) {
+  int x, y, n, db;
+  printf("========== Simulation Success ==========\n");
+  printf("Statistics:\n");
+  printf("\tTrips:\n");
+  printf("\t   \tSuccessful \tNot Served \tAborts\n");
+  printf("\t   \t%d         \t%d         \t%d\n", simData.tripsSuccess,
+         simData.tripsNotServed, (simData.trips - simData.tripsSuccess));
+  printf("\tTaxi:\n");
+  printf("\t\tMost Distance \tLongest Trip \tMost Trips\n");
+  printf("\tpid:\t%ld       \t%ld          \t%ld\n", simData.distanceWinner,
+         simData.timeWinner, simData.tripsWinner);
+  printf("\t    \t%d            \t%ld ms     \t%d\n", simData.maxDistance,
+         (simData.maxTime.tv_sec * 1000 + simData.maxTime.tv_usec / 1000),
+         simData.maxTrips);
+  printf("\tTop Cells:\n");
+  printf("\t\tvisits \tx \ty\n");
+  for (n = 0; n < simData.topCells; n++) {
+    printf(
+        "\t\t%d \t%d \t%d \n",
+        (*map)[(*simData.cellsWinner)[n].x][(*simData.cellsWinner)[n].y].visits,
+        (*simData.cellsWinner)[n].x, (*simData.cellsWinner)[n].y);
+  }
+  for (y = 0; y < SO_HEIGHT; y++) {
+    for (x = 0; x < SO_WIDTH; x++) {
+      switch ((*map)[x][y].state) {
+      case FREE:
+        db = 0;
+        for (n = 0; n < simData.topCells; n++) {
+          if ((*simData.cellsWinner)[n].x == x &&
+              (*simData.cellsWinner)[n].y == y) {
+            db = 1;
+            printf(ANSI_COLOR_RED "[ ]" ANSI_COLOR_RESET);
+          }
+        }
+        if (db == 0) {
+          printf("[ ]");
+        }
+        break;
+      case SOURCE:
+        printf("[S]");
+        break;
+      case HOLE:
+        printf("[#]");
+      }
+    }
+    printf("\n");
+  }
+}
+void logmsg(char *message, enum Level l) {
+  if (l <= DEBUG) {
+    printf("[master-%d] %s\n", getpid(), message);
+  }
+}
+
+void handler(int sig) {
+  switch (sig) {
+  case SIGINT:
+    executing = 0;
+    break;
+  case SIGALRM:
+    executing = 0;
+    break;
+  case SIGQUIT:
+    executing = 0;
+    break;
+  case SIGUSR1:
+    break;
+  case SIGUSR2:
+    executing = 0;
+    break;
+  case SIGTSTP:
+    break;
+  }
 }

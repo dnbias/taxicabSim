@@ -1,5 +1,6 @@
 #+AUTHOR: Daniel Biasiotto, Giovanni Chiarpenello, Stefano Calandra
 #+EMAIL: daniel.biasiotto@edu.unito.it
+#+ATTR_LATEX: :width .6\textwidth :thickness 0.8pt
 #+TITLE: Progetto Taxicab
 
 * Info
@@ -14,24 +15,32 @@ gcc -D_GNU_SOURCE -std=c89 -pedantic -DDEBUG=0
   + attivabile con 1
 
 * Struttura della Simulazione
-La simulazione è strutturata in diversi processi. 
+La simulazione e' strutturata in diversi processi.
 ** Master
 Si occupa della raccolta e stampa dei dati durante l'esecuzione del programma.
-- Esegue generator
+- Crea la coda di messaggi dedicata ai processi che lo seguiranno
+- Crea la memoria condivisa puntata da *mapptr*
+  - Una matrice dimensionata SO_WIDTH*SO_HEIGHT di Cell
+- Esegue Generator
+- Attende il messaggio da parte di Generator
+  + Alloca con una malloc() lo spazio per l'array simData.topCells
+- Stampa ogni secondo lo stato della Mappa
+  - in particolare l'attributo =visits= dalle Cells
 - Al termine della simulazione stampa i dati finali richiesti dal progetto.
   - Numero di viaggi effettuati:
     + Con successo
     + Inevasi
     + Abortiti
   - I processi taxi che hanno:
-    + Attraversato più strada
-    + Viaggiato più a lungo nel servire una richiesta
+    + Attraversato piu' strada
+    + Viaggiato piu' a lungo nel servire una richiesta
     + Servito il maggior numero di richieste/clienti
   - La mappa dove saranno evidenziati:
-    + Numero di punti sulla mappa di origine dei clienti (SO_SOURCE)
+    + Punti sulla mappa di origine dei clienti (SO_SOURCE)
     + Punti inaccessibili ai taxi sulla mappa (SO_HOLES)
     + Le celle maggiormente attraversate dai taxi
-
+- Una volta terminata la stampa disalloca le sue risorse e conclude.
+ 
 *** Funzioni
 #+BEGIN_SRC C
 void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[])
@@ -41,9 +50,9 @@ void cellsData(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[])
 void printMap(Cell (*map)[][SO_HEIGHT])
 #+END_SRC
   - Si occupa della stampa della mappa nel seguente formato leggibile:
-    + Celle FREE sono stampate come [ ]
-    + Celle SOURCE sono stampate come [S]
-    + Celle HOLE sono stampate come [#]
+    + Celle =FREE= sono stampate come [ ]
+    + Celle =SOURCE= sono stampate come [S]
+    + Celle =HOLE= sono stampate come [#]
 #+BEGIN_SRC C
 void handler(int sig)
 #+END_SRC
@@ -72,18 +81,18 @@ void printReport(Cell (*map)[][SO_HEIGHT], Point mostUsedCell_ptr[])
       + writers (SO_WIDTH * SO_HEIGHT)
       + sem
         - utilizzato per sincronizzare i taxi alla partenza
-  - Esegue la prima stampa della mappa, in forma di matrice, il quale sarà composto da:
-    + Cell costituiti da variabili
-      + capacity
-        + traffic
-        + visits
-        + state
-          + FREE, dove i taxi possono muoversi liberamente all'interno della mappa
-          + SOURCE, dove le richieste dei clienti sono originate (SO_SOURCES)
-          + HOLE, inaccessibili ai taxi (SO_HOLE).
-      + Point, la posizione all'interno della mappa, costituito dalle variabili x e y
   - Genera la mappa popolando la memoria condivisa
     (SO_WIDTH * SO_HEIGHT * sizeof(Cell)) puntata da mapptr
+  - Esegue la prima stampa della *mappa*, in forma di matrice, il quale sarà composto da:
+    + *Cell* costituiti da variabili
+      * capacity
+      * traffic
+      * visits
+      * state
+        - *FREE*, dove i taxi possono muoversi liberamente all'interno della mappa
+        - *SOURCE*, dove le richieste dei clienti sono originate (SO_SOURCES)
+        - *HOLE*, inaccessibili ai taxi (SO_HOLE).
+      * Point, la posizione all'interno della mappa, costituito dalle variabili x e y
   - Esegue  SO_SOURCES processi source
     - li inserisce in un array di Point per semplificare ai Taxi lo spostamesto alla Source piu' vicina
   - Esegue SO_TAXI processi taxi, i quali si occuperanno di soddisfare le richieste dei clienti.
@@ -108,7 +117,7 @@ int checkNoAdiacentHoles(Cell (*matrix)[][SO_HEIGHT], int x, int y)
 #+BEGIN_SRC C
 void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf)
 #+END_SRC
-  - Popola la matrice [x] [y] segnando lo stato delle celle se sono FREE, SOURCE oppure HOLE.
+  - Popola la matrice[x][y] segnando lo stato delle celle se sono FREE, SOURCE oppure HOLE.
 #+BEGIN_SRC C
 void printMap(Cell (*map)[][SO_HEIGHT])
 #+END_SRC
@@ -134,13 +143,16 @@ void handler(int sig)
   - Si occupa della gestione dei segnali.
 ** Source
 Si occupa della generazione delle richieste all'interno nella mappa.
-- Avvia il ciclo d'esecuzione, il quale sceglierà casualmente le celle che diventeranno i punti d'arrivo dei clienti durante la simulazione.
+- Una volta inizializzata aspetta che il valore di =sem= sia 0
+- Avvia il ciclo d'esecuzione, nel quale scegliera' casualmente le celle che diventeranno le destinazioni dei clienti durante la simulazione e inviera' la richiesta sulla *Coda di Messaggi* destinata ai Taxi.
+- In caso l'utente invii =SIGTSTP= con la combinazione di tasti *CTRL+Z* generera' una richiesta.
+- Una volta ricevuto =SIGALRM= o =SIGINT= rilascia le risorse e chiude.
 
 *** Funzioni
 #+BEGIN_SRC C
 void logmsg(char *message, enum Level l)
 #+END_SRC
-- Si occupa delle stampe a video.
+- Si occupa delle stampe su stdout.
 #+BEGIN_SRC C
 Void handler(int sig)
 #+END_SRC
@@ -156,44 +168,50 @@ void userRequest()
 
 ** Taxi
 Si occupa dei taxi e di configurare il loro comportamento durante l'esecuzione della simulazione.
-- si sposta la sorgente piu' vicina, ovvero al punto d'origine del cliente
-- una volta alla sorgente raccoglie le richieste di quella specifica Source sulla coda di messaggi
+- Una volta inizializzato aspetta che il valore di =sem= sia 0
+- si sposta alla sorgente piu' vicina, ovvero al punto d'origine del cliente
+- una volta alla sorgente raccoglie le richieste di quella specifica Source sulla *coda di messaggi*
 - si sposta alla Cella indicata dalla richiesta
-- Il processo continuerà a ripetersi fino al termine del tempo a disposizione alla simulazione, o nel caso il Taxi raggiunga il tempo di SO_TIMEOUT tra uno spostamento e l'altro (nel caso non riesca a prendere in carico una richiesta in tempo)
+- Il processo continuera' a ripetersi fino al termine del tempo a disposizione alla simulazione, o nel caso il Taxi raggiunga il tempo di SO_TIMEOUT tra uno spostamento e l'altro (nel caso non riesca a prendere in carico una richiesta in tempo)
+- Una volta ricevuto =SIGALRM= o =SIGINT= rilascia le risorse e chiude.
 
 *** Funzioni
 #+BEGIN_SRC C
 void moveTo(Point dest)
 #+END_SRC
-    - Si occupa dello spostamento dei taxi fra le varie celle della mappa durante la compilazione.
+- Si occupa dello spostamento dei taxi fra le varie celle della mappa durante la compilazione.
 #+BEGIN_SRC C
 int canTransist(Point p)
 #+END_SRC
-    - Verifica se sia possibile per il taxi di spostarsi alla cella seguente.
+- Verifica se sia possibile per il taxi di spostarsi alla cella seguente.
 #+BEGIN_SRC C
 void incTrafficAt(Point p)
 #+END_SRC
-    - Aumenta il traffico all'interno della cella.
+- Aumenta il traffico all'interno della cella.
 #+BEGIN_SRC C
 void decTrafficAt(Point p)
 #+END_SRC
-    - Diminuisce il traffico all'interno della cella.
+- Diminuisce il traffico all'interno della cella.
 #+BEGIN_SRC C
 void logmsg(char *message, enum Level l)
 #+END_SRC
-    - Si occupa della trasmissione dei messaggi fra tutte le funzioni all'interno del processo durante la simulazione.
+- Si occupa della trasmissione dei messaggi fra tutte le funzioni all'interno del processo durante la simulazione.
 #+BEGIN_SRC C
 Point getNearSource(int *source_id)
 #+END_SRC
-    - Si occupa della selezione del punto d'origine dei clienti più vicino.
+- Si occupa della selezione del punto d'origine dei clienti più vicino.
 #+BEGIN_SRC C
 void checkTimeout()
 #+END_SRC
-    - Verifica se il tempo a disposizione sia scaduto.
+- Verifica se il tempo a disposizione sia scaduto.
+#+BEGIN_SRC C
+void printRep();
+#+END_SRC
+- Stampa (se DEBUG=1) lo stato dal Taxi
 #+BEGIN_SRC C
 void handler(int sig)
 #+END_SRC
-    - Si occupa della trasmissione dei messaggi fra tutte le funzioni all'interno del processo durante la simulazione.
+- Si occupa della trasmissione dei messaggi fra tutte le funzioni all'interno del processo durante la simulazione.
 ** general.h
 Imposta le strutture principali che tutti altri processi utilizzeranno durante la simulazione e effettua gli import delle librerie comuni.
 - Cell, le celle che formano la mappa durante la compilazione.
@@ -228,7 +246,7 @@ void unlock(int sem)
 #+END_SRC
 - Diminuisce il valore del semaforo di sincronizzazione, portandolo a -1.
 ** Configurazione
-Il programma utilizza dieci parametri letti a tempo di esecuzione, da file taxicab.con, e due a tempo di compilazione, da general.h.3
+Il programma utilizza dieci parametri letti a tempo di esecuzione, da file taxicab.con, e due a tempo di compilazione, da general.h
 
 In =taxicab.conf=
 - SO_TAXI
@@ -240,17 +258,17 @@ In =taxicab.conf=
 - SO_TOP_CELL
   - Numero di celle maggiormente attraversate dai taxi.
 - SO_CAP_MIN
-  - Capacità minima di ogni cella.
+  - Capacita' minima di ogni cella.
 - SO_CAP_MAX
-  - Capacità massima di ogni cella.
+  - Capacita' massima di ogni cella.
 - SO_TIMENSEC_MIN
   - Tempo minimo necessario per l'attraversamento di ogni cella (in nanosecondi).
 - SO_TIMENSEC_MAX
   - Tempo massimo necessario per l'attraversamento di ogni cella (in nanosecondi).
 - SO_TIMEOUT
-  - Tempo di inattività massiva di ogni taxi, dopo il quale il taxi chiude inviando SIGUSR1 a generator.
+  - Tempo di inattivita' massima di ogni taxi, dopo il quale il taxi chiude inviando SIGUSR1 a generator.
 - SO_DURATION
-  - Durata della simulazione. Dopo questo tempo, il processo Generator invia SIGINT ai figli.
+  - Durata della simulazione. Dopo questo tempo i processi ricevono =SIGALRM=.
 In =general.h=
 - SO_WIDTH
   - Larghezza della mappa.
@@ -261,7 +279,7 @@ In =general.h=
 Per assicurarsi che il programma esegua correttamente sono stati necessari diversi accorgimenti riguardo la sincronizzazione di tutti i moduli.
 ** Partenza
 Una volta inizializzate tutte le strutture dati ed eseguiti le Source e i Taxi la sincronizzazione e' implementata:
-- con un semaforo Sem inizializzato a 1
+- con un semaforo =sem= inizializzato a 1
   + i Taxi e le Source aspettano lo 0
   + Generator lo azzera subito prima di far partire il timer SO_TIMEOUT
 - con il primo messaggio a Master da parte di Generator (contenente SO_TOP_CELLS) Master rientra in esecuzione
@@ -274,14 +292,14 @@ L'accesso viene ordinato utilizzando uno schema di sincronizzazione Lettori-Scri
 - =mutex= e' un semaforo utilizzato per la mutua esclusione nella modifica di readers
 - =readers= e' un intero inizializzato a 0 in memoria condivisa
 
-- Writer
+- *Writer*
 #+ATTR_LATEX: :options frame=single
 #+BEGIN_SRC C
 wait(p, writer);
 // Perform write operation
 signal(p, writer);
 #+END_SRC
-- Reader
+- *Reader*
 #+BEGIN_SRC C
 wait(mutex);
 readers++;
@@ -299,8 +317,8 @@ signal(mutex);
 #+END_SRC
 
 ** Conclusione
-Nella fase di chiusura i processi ricevono SIGALRM da generator, che si mette in attesa dei figli.
-Una volta conclusi i figli e disallocate le risorse condivise Generator invia SIGUSR2 a Master e conclude.
+Nella fase di chiusura i processi ricevono =SIGALRM= da generator, che si mette in attesa dei figli.
+Una volta conclusi i figli e disallocate le risorse condivise Generator invia =SIGUSR2= a Master e conclude.
 Master, ricevuto il segnale, imposta la propria flag di esecuzione a 0 e attende eventuali figli.
 Procede allora con la raccolta dei messaggi a lui inviati dai processi alla loro uscita, con questi messaggi popolera' le sue aree dati per la stampa finale delle statistiche.
 
