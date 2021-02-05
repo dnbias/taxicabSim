@@ -19,8 +19,8 @@
 #define DEBUG 0
 #endif
 
-#define SO_WIDTH 13 /* a tempo di compilazione */
-#define SO_HEIGHT 51
+#define SO_WIDTH 53 /* a tempo di compilazione */
+#define SO_HEIGHT 21
 #define EXIT_ON_ERROR                                                          \
   if (errno) {                                                                 \
     fprintf(stderr, "%d: pid %ld; errno: %d (%s)\n", __LINE__, (long)getpid(), \

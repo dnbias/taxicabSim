@@ -182,8 +182,10 @@ void moveTo(Point dest) { /*pathfinding*/
     if (0)
       printf("[taxi-%d] DirX: %d DirY %d\n", getpid(), dirX, dirY);
     if (abs(dirX + dirY) == 1) {
+      lock(mutex);
       incTrafficAt(dest);
       decTrafficAt(position);
+      unlock(mutex);
       position.x = dest.x;
       position.y = dest.y;
       if (0)
@@ -196,8 +198,10 @@ void moveTo(Point dest) { /*pathfinding*/
       while (!found) {
         checkTimeout();
         if (canTransit(temp)) {
+          lock(mutex);
           incTrafficAt(temp);
           decTrafficAt(position);
+          unlock(mutex);
           oldPos.x = position.x;
           oldPos.y = position.y;
           position.x = temp.x;
@@ -211,8 +215,10 @@ void moveTo(Point dest) { /*pathfinding*/
       while (!found) {
         checkTimeout();
         if (canTransit(temp)) {
+          lock(mutex);
           incTrafficAt(temp);
           decTrafficAt(position);
+          unlock(mutex);
           oldPos.x = position.x;
           oldPos.y = position.y;
           position.x = temp.x;
@@ -226,8 +232,10 @@ void moveTo(Point dest) { /*pathfinding*/
       while (!found) {
         checkTimeout();
         if (canTransit(temp)) {
+          lock(mutex);
           incTrafficAt(temp);
           decTrafficAt(position);
+          unlock(mutex);
           oldPos.x = position.x;
           oldPos.y = position.y;
           position.x = temp.x;
@@ -241,8 +249,10 @@ void moveTo(Point dest) { /*pathfinding*/
       while (!found) {
         checkTimeout();
         if (canTransit(temp)) {
+          lock(mutex);
           incTrafficAt(temp);
           decTrafficAt(position);
+          unlock(mutex);
           oldPos.x = position.x;
           oldPos.y = position.y;
           position.x = temp.x;
@@ -277,8 +287,10 @@ void moveTo(Point dest) { /*pathfinding*/
         } else {
           if (!canTransit(temp))
             continue;
+          lock(mutex);
           incTrafficAt(temp);
           decTrafficAt(position);
+          unlock(mutex);
           oldPos.x = position.x;
           oldPos.y = position.y;
           position.x = temp.x;
@@ -313,8 +325,10 @@ void moveTo(Point dest) { /*pathfinding*/
         } else {
           if (!canTransit(temp))
             continue;
+          lock(mutex);
           incTrafficAt(temp);
           decTrafficAt(position);
+          unlock(mutex);
           oldPos.x = position.x;
           oldPos.y = position.y;
           position.x = temp.x;
@@ -349,8 +363,10 @@ void moveTo(Point dest) { /*pathfinding*/
         } else {
           if (!canTransit(temp))
             continue;
+          lock(mutex);
           incTrafficAt(temp);
           decTrafficAt(position);
+          unlock(mutex);
           oldPos.x = position.x;
           oldPos.y = position.y;
           position.x = temp.x;
@@ -385,8 +401,10 @@ void moveTo(Point dest) { /*pathfinding*/
         } else {
           if (!canTransit(temp))
             continue;
+          lock(mutex);
           incTrafficAt(temp);
           decTrafficAt(position);
+          unlock(mutex);
           oldPos.x = position.x;
           oldPos.y = position.y;
           position.x = temp.x;

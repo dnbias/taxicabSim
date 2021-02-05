@@ -249,7 +249,7 @@ void unblock(int sem) {
 void parseConf(Config *conf) {
   FILE *in;
   char s[16], c;
-  int n;
+  int n, i = 0;
   char filename[] = "taxicab.conf";
   in = fopen(filename, "r");
   while (fscanf(in, "%s", s) == 1) {
@@ -262,7 +262,7 @@ void parseConf(Config *conf) {
     default:
       fscanf(in, "%d\n", &n);
       if (n < 0) {
-        logmsg("Configurazione non valida.", RUNTIME);
+        logmsg("Config not valid.", RUNTIME);
         kill(0, SIGINT);
       }
       if (strncmp(s, "SO_TAXI", 7) == 0) {
@@ -286,7 +286,12 @@ void parseConf(Config *conf) {
       } else if (strncmp(s, "SO_DURATION", 11) == 0) {
         conf->SO_DURATION = n;
       }
+      i++;
     }
+  }
+  if (i < 10) {
+    logmsg("Config not valid.", RUNTIME);
+    kill(0, SIGINT);
   }
   fclose(in);
 }
@@ -358,7 +363,6 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
   }
   startTime = time(NULL); /* To stop the user from using too many holes */
   for (i = conf->SO_HOLES; i > 0; i--) {
-    printf("%d", i);
     if (time(NULL) - startTime > 2) {
       logmsg("You selected too many holes to fit the map:\n\t\tRetry "
              "with less.\nQuitting...",
@@ -369,7 +373,6 @@ void generateMap(Cell (*matrix)[][SO_HEIGHT], Config *conf) {
     y = rand() % SO_HEIGHT;
     if (checkNoAdiacentHoles(matrix, x, y) == 0) {
       (*matrix)[x][y].state = HOLE;
-      logmsg("HOLE", RUNTIME);
     } else {
       i++;
     }
@@ -428,8 +431,9 @@ void printMap(Cell (*map)[][SO_HEIGHT]) {
         printf("[#]");
       }
     }
-    printf("\n\n");
+    printf("\n");
   }
+  printf("\n");
 }
 
 void logmsg(char *message, enum Level l) {

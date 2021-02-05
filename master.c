@@ -202,6 +202,7 @@ void printReport(Cell (*map)[][SO_HEIGHT]) {
         (*map)[(*simData.cellsWinner)[n].x][(*simData.cellsWinner)[n].y].visits,
         (*simData.cellsWinner)[n].x, (*simData.cellsWinner)[n].y);
   }
+  printf("\n");
   for (y = 0; y < SO_HEIGHT; y++) {
     for (x = 0; x < SO_WIDTH; x++) {
       switch ((*map)[x][y].state) {
