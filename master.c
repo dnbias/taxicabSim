@@ -131,6 +131,9 @@ void printReport(Cell (*map)[][SO_HEIGHT]) {
         printf("\t\t%d \t%d \t%d \tSOURCE\n", (*map)[simData.cellsWinner[n].x][simData.cellsWinner[n].y].visits, simData.cellsWinner[n].x, 
     			simData.cellsWinner[n].y);
         break;
+      case HOLE:
+        printf("[#]");
+        break;
     }
   }
   for (y = 0; y < SO_HEIGHT; y++) {
