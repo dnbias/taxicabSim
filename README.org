@@ -1,5 +1,5 @@
 #+AUTHOR: Daniel Biasiotto, Giovanni Chiarpenello, Stefano Calandra
-#+EMAIL: daniel.biasiotto@edu.unito.it
+#+EMAIL: daniel.biasiotto@edu.unito.it, giovanni.chiarpen@edu.unito.it
 #+ATTR_LATEX: :width .6\textwidth :thickness 0.8pt
 #+TITLE: Progetto Taxicab
 
@@ -25,7 +25,7 @@ Si occupa della raccolta e stampa dei dati durante l'esecuzione del programma.
 - Attende il messaggio da parte di Generator
   + Alloca con una malloc() lo spazio per l'array simData.topCells
 - Stampa ogni secondo lo stato della Mappa
-  - in particolare l'attributo =visits= dalle Cells
+  - in particolare l'attributo =traffic= dalle Cells
 - Al termine della simulazione stampa i dati finali richiesti dal progetto.
   - Numero di viaggi effettuati:
     + Con successo
@@ -38,7 +38,7 @@ Si occupa della raccolta e stampa dei dati durante l'esecuzione del programma.
   - La mappa dove saranno evidenziati:
     + Punti sulla mappa di origine dei clienti (SO_SOURCE)
     + Punti inaccessibili ai taxi sulla mappa (SO_HOLES)
-    + Le celle maggiormente attraversate dai taxi
+    + Le celle maggiormente attraversate dai taxi che non sono appartenti a SO_SOURCE (SO_TOP_CELLS)
 - Una volta terminata la stampa disalloca le sue risorse e conclude.
  
 *** Funzioni
@@ -130,7 +130,7 @@ void logmsg(char *message, enum Level l)
 #+END_SRC
   - Si occupa della trasmissione dei messaggi fra tutte le funzioni all'interno del processo durante la simulazione.
 #+BEGIN_SRC C
-oid execTaxi()
+void execTaxi()
 #+END_SRC
   - Invoca taxi per generare i taxi che verranno inseriti nella mappa.
 #+BEGIN_SRC C
